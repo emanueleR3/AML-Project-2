@@ -1,0 +1,109 @@
+# --------------------
+# Python / general
+# --------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Envs
+.venv/
+venv/
+env/
+ENV/
+poetry.lock
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+*.ipynb~ 
+.colab/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --------------------
+# Secrets / configs
+# --------------------
+.env
+*.pem
+*.key
+*.crt
+secrets.*
+config.local.*
+configs/local*.yaml
+
+# --------------------
+# Data / artifacts
+# --------------------
+data/
+datasets/
+**/cifar-100-python/
+*.h5
+*.npz
+*.npy
+
+# --------------------
+# Experiment outputs
+# --------------------
+outputs/
+runs/
+wandb/
+mlruns/
+lightning_logs/
+tensorboard/
+tb_logs/
+
+# Checkpoints
+*.ckpt
+*.pth
+*.pt
+*.bin
+checkpoints/
+**/checkpoints/
+
+# Figures (generated)
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.svg
+figures/
+**/figures/
+
+# --------------------
+# LaTeX build artifacts
+# --------------------
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.log
+report/*.out
+report/*.toc
+report/*.lof
+report/*.lot
+report/*.fls
+report/*.fdb_latexmk
+report/*.synctex.gz
+report/*.nav
+report/*.snm
+
+# --------------------
+# Mac / temp
+# --------------------
+*.swp
+*.swo
+*~
