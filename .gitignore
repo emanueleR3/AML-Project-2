@@ -79,7 +79,6 @@ checkpoints/
 *.png
 *.jpg
 *.jpeg
-*.pdf
 *.svg
 figures/
 **/figures/
