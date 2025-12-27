@@ -11,7 +11,12 @@ from .data import (
 )
 
 from .model import (
-    load_dino_backbone, DINOClassifier
+    load_dino_backbone,
+    DINOClassifier,
+    apply_freeze_policy,
+    get_trainable_params,
+    count_params,
+    build_model,
 )
 
 __version__ = '0.1.0'
