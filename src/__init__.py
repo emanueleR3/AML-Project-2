@@ -7,7 +7,7 @@ from .utils import (
 )
 
 from .data import (
-    get_transformes, load_cifar100, create_dataloader, partition_iid, partition_non_iid
+    get_transforms, load_cifar100, create_dataloader, partition_iid, partition_non_iid
 )
 
 from .model import (
