@@ -1,23 +1,17 @@
-"""
-AML Project 2: DINO + CIFAR-100 Federated Learning
-"""
 
 from .utils import (
-    set_seed, get_device, get_device_info,
-    load_dino_model, get_dino_embedding_dim, extract_features,
+    set_seed, get_device, ensure_dir, 
     count_parameters, freeze_model, unfreeze_model,
-    save_checkpoint, load_checkpoint,
+    save_checkpoint, load_checkpoint, save_metrics_json,
     AverageMeter, accuracy
 )
 
 from .data import (
-    CIFAR100_MEAN, CIFAR100_STD, IMAGENET_MEAN, IMAGENET_STD,
-    get_dino_transforms, load_cifar100, create_dataloaders,
-    partition_dataset_iid, partition_dataset_non_iid, get_client_dataloader
+    get_transformes, load_cifar100, create_dataloader, partition_iid, partition_non_iid
 )
 
 from .model import (
-    DINOClassifier, LinearProbe, MLPHead, create_dino_classifier
+    load_dino_backbone, DINOClassifier
 )
 
 __version__ = '0.1.0'
