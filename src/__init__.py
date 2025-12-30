@@ -19,4 +19,17 @@ from .model import (
     build_model,
 )
 
+from .train import (
+    train_one_epoch,
+    evaluate,
+    local_train,
+)
+
+from .fedavg import (
+    client_update,
+    fedavg_aggregate,
+    run_fedavg_round,
+    run_fedavg,
+)
+
 __version__ = '0.1.0'

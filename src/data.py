@@ -27,13 +27,24 @@ def get_transforms(image_size: int = 224, is_training: bool = True):
     ])
 
 
-def load_cifar100(data_dir: str = './data', image_size: int = 224):
+def load_cifar100(data_dir: str = './data', image_size: int = 224, download: bool = True):
+    """
+    Load CIFAR-100 dataset with DINO-compatible transforms.
+    
+    Args:
+        data_dir: Directory to store/load the dataset
+        image_size: Size to resize images to (default 224 for DINO)
+        download: Whether to download the dataset if not present (default True)
+        
+    Returns:
+        Tuple of (train_dataset, test_dataset)
+    """
     train_dataset = torchvision.datasets.CIFAR100(
-        root=data_dir, train=True, download=True,
+        root=data_dir, train=True, download=download,
         transform=get_transforms(image_size, is_training=True)
     )
     test_dataset = torchvision.datasets.CIFAR100(
-        root=data_dir, train=False, download=True,
+        root=data_dir, train=False, download=download,
         transform=get_transforms(image_size, is_training=False)
     )
     return train_dataset, test_dataset
