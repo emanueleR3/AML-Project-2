@@ -16,6 +16,7 @@ def get_transforms(image_size: int = 224, is_training: bool = True):
             transforms.Resize(image_size),
             transforms.RandomCrop(image_size, padding=4),
             transforms.RandomHorizontalFlip(),
+            transforms.RandAugment(num_ops=2, magnitude=9),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ])
