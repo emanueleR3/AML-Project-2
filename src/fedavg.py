@@ -179,6 +179,7 @@ def run_fedavg(
     lr = config.get('lr', 0.01)
     weight_decay = config.get('weight_decay', 1e-4)
     seed = config.get('seed', 42)
+    eval_freq = config.get('eval_freq', 1)
     
     np.random.seed(seed)
     criterion = nn.CrossEntropyLoss()
@@ -210,8 +211,12 @@ def run_fedavg(
         )
         
         # Evaluate
-        val_loss, val_acc = evaluate(global_model, val_loader, criterion, device, show_progress=False)
-        test_loss, test_acc = evaluate(global_model, test_loader, criterion, device, show_progress=False)
+        if round_idx % eval_freq == 0 or round_idx == num_rounds:
+            val_loss, val_acc = evaluate(global_model, val_loader, criterion, device, show_progress=False)
+            test_loss, test_acc = evaluate(global_model, test_loader, criterion, device, show_progress=False)
+        else:
+            val_loss, val_acc = float('nan'), float('nan')
+            test_loss, test_acc = float('nan'), float('nan')
         
         # Log
         history['round'].append(round_idx)
