@@ -63,9 +63,13 @@ def partition_iid(dataset: Dataset, num_clients: int, seed: int = 42):
 
 def partition_non_iid(dataset: Dataset, num_clients: int, num_classes_per_client: int, seed: int = 42):
     np.random.seed(seed)
-    labels = np.array(dataset.targets)
-    num_classes = len(np.unique(labels))
-    class_indices = {i: np.where(labels == i)[0] for i in range(num_classes)}
+    if isinstance(dataset, Subset):
+        targets = np.array(dataset.dataset.targets)[dataset.indices]
+    else:
+        targets = np.array(dataset.targets)
+    
+    num_classes = len(np.unique(targets))
+    class_indices = {i: np.where(targets == i)[0] for i in range(num_classes)}
     
     client_subsets = []
     for _ in range(num_clients):
