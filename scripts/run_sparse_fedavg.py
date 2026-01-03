@@ -477,11 +477,11 @@ def main():
         
         # Save final model
         final_path = output_dir / f"final_model_{mask_rule}_{sparsity_ratio:.2f}.pt"
-        save_checkpoint(str(final_path), {
+        save_checkpoint({
             'model': model.state_dict(),
             'mask': mask,
             'config': config
-        })
+        }, str(final_path))
         logger.info(f"Final model saved to {final_path}")
         
         logger.info(f"✅ Sparse training complete")
