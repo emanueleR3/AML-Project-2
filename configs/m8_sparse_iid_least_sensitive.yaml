@@ -1,0 +1,31 @@
+# M8 — Sparse FedAvg Configuration (IID)
+# Baseline: FedAvg IID with SparseSGDM
+
+exp_name: m8_sparse_iid_least_sensitive
+
+# Data
+iid: true
+num_clients: 20
+batch_size: 32
+
+# Model
+model: dino_vits16
+
+# Training
+num_rounds: 10
+clients_per_round: 0.5
+local_steps: 4
+lr: 0.01
+weight_decay: 0.0001
+seed: 42
+
+# Evaluation
+eval_freq: 1
+
+# Mask calibration
+sparsity_ratio: 0.8
+mask_rule: least_sensitive
+num_calib_batches: 10
+
+# Augmentation
+augmentation: true
