@@ -32,4 +32,8 @@ from .fedavg import (
     run_fedavg,
 )
 
+from .optim import (
+    SparseSGDM,
+)
+
 __version__ = '0.1.0'
