@@ -106,3 +106,6 @@ report/*.snm
 *.swp
 *.swo
 *~
+
+outputs1
+outputs2
