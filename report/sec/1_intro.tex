@@ -1,0 +1,17 @@
+\section{Introduction}
+\label{sec:intro}
+
+Federated Learning (FL) has emerged as a dominant paradigm for training models on decentralized data sources without requiring direct access to private information~\cite{mcmahan2017communication}. In a typical FL setting, a central server orchestrates a training process where clients perform local updates which are subsequently aggregated into a global model. While privacy-preserving, this approach faces significant challenges, primarily stemming from statistical heterogeneity (non-IID data) across clients. When local data distributions diverge significantly, the updates from different clients may conflict, leading to "interference" that degrades the global model's generalization capabilities.
+
+Recently, Model Editing and Task Arithmetic have been proposed as techniques to modify pre-trained models efficiently. Specifically, Ilharco \etal demonstrated that fine-tuned models can be merged by manipulating their weight vectors. Furthermore, recent studies suggest that updating only shared low-sensitivity parameters can minimize interference during merging~\cite{iurada2025efficient}.
+
+In this project, we aim to bridge these two fields by applying Task Arithmetic principles to the Federated Learning setting. We focus on Vision Transformers (ViT), specifically the DINO ViT-S/16, which provides a robust pre-trained feature extractor. 
+
+Our main contributions are as follows:
+\begin{itemize}
+    \item We establish a rigorous comparison between Centralized training and Federated Averaging (FedAvg) on CIFAR-100 under both IID and pathological non-IID settings.
+    \item We implement and evaluate a \textit{Sparse Fine-Tuning} mechanism (SparseSGDM), which masks gradient updates based on Fisher Information sensitivity, to test if limiting updates to specific parameter subspaces reduces client drift and interference.
+    \item We analyze the impact of sparsity ratios and local training steps on the final model performance.
+\end{itemize}
+
+The remainder of this paper is organized as follows: Section~\ref{sec:method} details the experimental setup and methodology, including the simulation of heterogeneity. Section~\ref{sec:experiments} (to be added) presents the quantitative results, and we conclude with a discussion on the effectiveness of sparse updates in FL.

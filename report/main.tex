@@ -1,0 +1,52 @@
+% CVPR 2026 Paper Template; see https://github.com/cvpr-org/author-kit
+
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+%%%%%%%%% PAPER TYPE  - PLEASE UPDATE FOR FINAL VERSION
+%\usepackage[review]{cvpr}      % To produce the REVIEW version
+\usepackage{cvpr}              % To produce the CAMERA-READY version
+
+% Import additional packages in the preamble file, before hyperref
+\input{preamble}
+
+\definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
+
+%%%%%%%%% PAPER ID  - PLEASE UPDATE
+\def\paperID{Group 2} % *** Insert your Group ID here
+\def\confName{AML Project}
+\def\confYear{2025}
+
+%%%%%%%%% TITLE
+\title{Federated Learning Under the Lens of Task Arithmetic: \\ Mitigating Interference via Sparse Fine-Tuning}
+
+%%%%%%%%% AUTHORS
+\author{Ferdinando Del Vecchio (sxxxxxx)\\
+{\tt\small email1@studenti.polito.it}
+\and
+Giacomo Di Palma (sxxxxxx)\\
+{\tt\small email2@studenti.polito.it}
+\and
+Marco Donatucci (s337624)\\
+{\tt\small s337624@studenti.polito.it}
+\and
+Emanuele Romano (s346325)\\
+{\tt\small s346325@studenti.polito.it}
+}
+
+\begin{document}
+\maketitle
+
+% Sections
+\input{sec/0_abstract}    
+\input{sec/1_intro}
+\input{sec/2_formatting} % This now contains Methodology/Setup
+% \input{sec/3_results} % You might want to create a separate file for results later
+
+{
+    \small
+    \bibliographystyle{ieeenat_fullname}
+    \bibliography{main}
+}
+
+\end{document}
