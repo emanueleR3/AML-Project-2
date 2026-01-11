@@ -1,17 +1,15 @@
 \section{Introduction}
 \label{sec:intro}
 
-Federated Learning (FL) has emerged as a dominant paradigm for training models on decentralized data sources without requiring direct access to private information~\cite{mcmahan2017communication}. In a typical FL setting, a central server orchestrates a training process where clients perform local updates which are subsequently aggregated into a global model. While privacy-preserving, this approach faces significant challenges, primarily stemming from statistical heterogeneity (non-IID data) across clients. When local data distributions diverge significantly, the updates from different clients may conflict, leading to "interference" that degrades the global model's generalization capabilities.
+The rapid growth of decentralized data generation has necessitated machine learning paradigms that can learn from distributed sources while respecting user privacy. Federated Learning (FL) addresses this by orchestrating a training process where a central server aggregates updates from local models trained on private client data. Despite its advantages, FL faces significant hurdles, primarily due to statistical heterogeneity (non-IID data) among clients. When local data distributions diverge, the resulting weight updates can conflict, a phenomenon known as "interference," which hinders the global model's ability to generalize.
 
-Recently, Model Editing and Task Arithmetic have been proposed as techniques to modify pre-trained models efficiently. Specifically, Ilharco \etal demonstrated that fine-tuned models can be merged by manipulating their weight vectors. Furthermore, recent studies suggest that updating only shared low-sensitivity parameters can minimize interference during merging~\cite{iurada2025efficient}.
+Parallel to developments in FL, the field of Model Editing has introduced methods to modify or improve pre-trained models without full retraining. A promising direction is Task Arithmetic, which demonstrates that fine-tuned models can be merged by manipulating their task vectors. Recent research suggests that fine-tuning only a subset of "low-sensitivity" parameters—a technique known as Sparse Fine-Tuning—can facilitate the composition of knowledge from different sources with minimal interference.
 
-In this project, we aim to bridge these two fields by applying Task Arithmetic principles to the Federated Learning setting. We focus on Vision Transformers (ViT), specifically the DINO ViT-S/16, which provides a robust pre-trained feature extractor. 
+In this paper, we aim to bridge these two fields by applying Task Arithmetic principles to the Federated Learning setting. We hypothesize that by constraining clients to update only the parameters that are least sensitive to the pre-trained knowledge, we can mitigate the adverse effects of client drift caused by data heterogeneity. We utilize a pre-trained DINO ViT-S/16 model and evaluate our method on the CIFAR-100 dataset under various non-IID conditions.
 
-Our main contributions are as follows:
+Our key contributions are:
 \begin{itemize}
-    \item We establish a rigorous comparison between Centralized training and Federated Averaging (FedAvg) on CIFAR-100 under both IID and pathological non-IID settings.
-    \item We implement and evaluate a \textit{Sparse Fine-Tuning} mechanism (SparseSGDM), which masks gradient updates based on Fisher Information sensitivity, to test if limiting updates to specific parameter subspaces reduces client drift and interference.
-    \item We analyze the impact of sparsity ratios and local training steps on the final model performance.
+    \item We implement a federated framework using a pre-trained Vision Transformer backbone to study the effects of data heterogeneity.
+    \item We integrate a Sparse Fine-Tuning mechanism (SparseSGDM) into the FL loop, masking gradients based on Fisher Information sensitivity to preserve shared knowledge.
+    \item We provide a comparative analysis between Centralized training, standard FedAvg, and our Sparse FL approach across different degrees of data heterogeneity.
 \end{itemize}
-
-The remainder of this paper is organized as follows: Section~\ref{sec:method} details the experimental setup and methodology, including the simulation of heterogeneity. Section~\ref{sec:experiments} (to be added) presents the quantitative results, and we conclude with a discussion on the effectiveness of sparse updates in FL.

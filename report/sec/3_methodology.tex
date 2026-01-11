@@ -1,0 +1,28 @@
+\section{Methodology and Architecture}
+\label{sec:method}
+
+In this section, we detail our experimental framework, including the model architecture, the simulation of the federated environment, and the sparse optimization algorithm.
+
+\subsection{Model Architecture}
+We adopt the \textbf{DINO ViT-S/16} architecture~\cite{caron2021emerging}, a Vision Transformer pre-trained with self-supervision. Self-supervised pre-training has been shown to yield robust feature representations that are well-suited for transfer learning. We fine-tune this backbone on the \textbf{CIFAR-100} dataset, which contains 100 classes of images. Since the standard distribution lacks a validation set, we partition the training data to create a local validation split for hyperparameter tuning.
+
+\subsection{Federated Simulation Setup}
+We simulate a federated system with $K=100$ clients~\cite{mcmahan2017communication}. To analyze the impact of data heterogeneity, we employ two data partitioning strategies:
+\begin{itemize}
+    \item \textbf{I.I.D. Sharding:} Training samples are uniformly distributed, ensuring each client holds a representative subset of the classes.
+    \item \textbf{Non-I.I.D. Sharding:} To simulate realistic statistical heterogeneity, we restrict each client to possess samples from only $N_c$ distinct classes. We vary $N_c \in \{1, 5, 10, 50\}$ to control the severity of the heterogeneity; for instance, $N_c=1$ represents an extreme case where each client sees only a single class~\cite{hsu2019measuring, li2018federated}.
+\end{itemize}
+In each communication round, a fraction $C=0.1$ of clients is sampled to perform local training for $J$ local epochs (steps)~\cite{mcmahan2017communication}.
+
+\subsection{Sparse Optimization Algorithm}
+To mitigate interference, we implement a \textbf{SparseSGDM} optimizer that restricts updates to a subset of parameters. The process involves two key steps:
+
+\paragraph{1. Gradient Mask Calibration}
+Before the main training loop, we compute a binary mask $M \in \{0, 1\}^d$ identifying the ``least-sensitive'' parameters. We use the diagonal of the Fisher Information Matrix (FIM) as a proxy for sensitivity~\cite{iurada2025efficient}. Parameters with FIM values below a certain threshold are marked as trainable ($1$), while highly sensitive parameters are frozen ($0$) to preserve the pre-trained knowledge~\cite{iurada2025efficient}.
+
+\paragraph{2. Local Sparse Training}
+During local training, clients optimize the model using the mask $M$. The update rule for the weights $w$ at step $t$ is modified as follows:
+\begin{equation}
+    w_{t+1} = w_t - \eta \cdot (M \odot \nabla \mathcal{L}(w_t))
+\end{equation}
+where $\odot$ denotes element-wise multiplication~\cite{iurada2025efficient}. This ensures that updates are confined to the safe, low-sensitivity subspace, facilitating additive composition during the server aggregation step~\cite{ilharco2023editing}.

@@ -1,0 +1,11 @@
+\section{Related Works}
+\label{sec:related}
+
+\subsection{Federated Learning and Heterogeneity}
+Federated Learning was introduced by McMahan \etal as a communication-efficient method to train deep networks from decentralized data~\cite{mcmahan2017communication}. While effective, the standard Federated Averaging (FedAvg) algorithm struggles when data is not independently and identically distributed (non-IID) across clients~\cite{li2018federated, hsu2019measuring}. Statistical heterogeneity leads to ``client drift,'' where local models overfit to their local distributions, causing the aggregated global model to diverge from the optimal solution~\cite{karimireddy2020scaffold, li2021fedbn}. Several works have addressed this via adaptive optimization~\cite{reddi2021adaptive} or variance reduction techniques like SCAFFOLD~\cite{karimireddy2020scaffold}, but interference remains a critical issue in complex vision tasks~\cite{qu2022rethinking}.
+
+\subsection{Model Editing and Task Arithmetic}
+Model editing focuses on modifying pre-trained models to alter their behavior or add new capabilities~\cite{ilharco2023editing}. Ilharco \etal introduced ``Task Arithmetic,'' showing that task vectors (the difference between fine-tuned and pre-trained weights) can be added or subtracted to steer model behavior~\cite{ilharco2023editing}. This implies that models share a common weight space where functional properties can be composed linearly~\cite{ilharco2023editing}.
+
+\subsection{Sparse Fine-Tuning}
+To improve the mergeability of models, recent studies have highlighted the importance of parameter sensitivity. Iurada \etal proposed keeping highly sensitive parameters frozen while updating only low-sensitivity ones (Sparse Fine-Tuning), demonstrating that this reduces destructive interference when merging models trained on different tasks~\cite{iurada2025efficient}. Our work extends this concept to the federated setting, treating each client's local training as a distinct ``task'' adaption that must be merged into the global model.
