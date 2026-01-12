@@ -18,20 +18,6 @@ def train_one_epoch(
     device: torch.device,
     show_progress: bool = True
 ) -> Tuple[float, float]:
-    """
-    Trains the model for one full epoch.
-    
-    Args:
-        model: Neural network model
-        loader: Training data loader
-        optimizer: Optimizer instance
-        criterion: Loss function
-        device: Device to use for training
-        show_progress: Whether to show progress bar
-        
-    Returns:
-        Tuple of (average loss, average accuracy)
-    """
     model.train()
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
@@ -64,19 +50,6 @@ def evaluate(
     device: torch.device,
     show_progress: bool = True
 ) -> Tuple[float, float]:
-    """
-    Evaluates the model on the given data loader.
-    
-    Args:
-        model: Neural network model
-        loader: Evaluation data loader
-        criterion: Loss function
-        device: Device to use for evaluation
-        show_progress: Whether to show progress bar
-        
-    Returns:
-        Tuple of (average loss, average accuracy)
-    """
     model.eval()
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
@@ -102,20 +75,6 @@ def local_train(
     device: torch.device,
     local_steps: int
 ) -> Tuple[float, float, int]:
-    """
-    Performs J local training steps (for Federated Learning).
-    
-    Args:
-        model: Neural network model
-        loader: Client's training data loader
-        optimizer: Optimizer instance
-        criterion: Loss function
-        device: Device to use for training
-        local_steps: Number of local steps (J)
-        
-    Returns:
-        Tuple of (average loss, average accuracy, number of samples processed)
-    """
     model.train()
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()

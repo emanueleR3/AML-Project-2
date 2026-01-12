@@ -1,28 +1,48 @@
+\section{Introduction}
+
 \section{Methodology and Architecture}
 \label{sec:method}
 
-In this section, we detail our experimental framework, including the model architecture, the simulation of the federated environment, and the sparse optimization algorithm.
+In this section, we detail our experimental framework for Federated Learning (FL). We first describe the model architecture and dataset, followed by the simulation of the federated environment with controlled data heterogeneity. Finally, we introduce the sparse optimization strategy, designed to mitigate the effects of interference between clients (so-called "client drift") and catastrophic forgetting of pre-trained knowledge.
 
-\subsection{Model Architecture}
-We adopt the \textbf{DINO ViT-S/16} architecture~\cite{caron2021emerging}, a Vision Transformer pre-trained with self-supervision. Self-supervised pre-training has been shown to yield robust feature representations that are well-suited for transfer learning. We fine-tune this backbone on the \textbf{CIFAR-100} dataset, which contains 100 classes of images. Since the standard distribution lacks a validation set, we partition the training data to create a local validation split for hyperparameter tuning.
+\subsection{Model Architecture and Dataset}
+We adopt the \textbf{DINO ViT-S/16} architecture~\cite{caron2021emerging}, a Vision Transformer (ViT) pre-trained with self-supervision. Unlike supervised pre-training, DINO allows the model to learn robust and transferable visual features without relying on labeled data. We fine-tune this backbone on the \textbf{CIFAR-100} dataset, which consists of 60,000 images uniformly distributed across 100 classes.
+
+For both central and federated experiments, we employ a standard data splitting strategy. A subset of the training data (approx. 20\%) is reserved as a validation set to monitor convergence and tune hyperparameters. In our default configuration, we adopt a "Head-Only" freeze policy: the pre-trained ViT backbone is frozen to preserve its feature extraction capabilities, and only the randomly initialized classification head is trained. In the sparse optimization experiments, we relax this constraint, allowing a small subset of the backbone parameters to be fine-tuned along with the head.
 
 \subsection{Federated Simulation Setup}
-We simulate a federated system with $K=100$ clients~\cite{mcmahan2017communication}. To analyze the impact of data heterogeneity, we employ two data partitioning strategies:
+We simulate a federated learning ecosystem with $K=100$ clients. In each communication round, the server randomly samples a fraction $C=0.1$ of the clients (10 clients per round) to perform local training. 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/fedAvg.PNG}
+    \caption{Overview of the Federated Averaging (FedAvg) workflow.}
+    \label{fig:fedavg}
+\end{figure}
+
+To systematically analyze the impact of statistical heterogeneity, we implement two data partitioning strategies:
 \begin{itemize}
-    \item \textbf{I.I.D. Sharding:} Training samples are uniformly distributed, ensuring each client holds a representative subset of the classes.
-    \item \textbf{Non-I.I.D. Sharding:} To simulate realistic statistical heterogeneity, we restrict each client to possess samples from only $N_c$ distinct classes. We vary $N_c \in \{1, 5, 10, 50\}$ to control the severity of the heterogeneity; for instance, $N_c=1$ represents an extreme case where each client sees only a single class~\cite{hsu2019measuring, li2018federated}.
+    \item \textbf{I.I.D. Sharding:} Training samples are shuffled and uniformly distributed among clients. This ensures that each client's local dataset is representative of the global distribution, serving as an idealized baseline.
+    \item \textbf{Non-I.I.D. Sharding:} We simulate label distribution skew, a common scenario in real-world FL. Each client is restricted to possess samples from only $N_c$ distinct classes out of the 100 available. We vary $N_c \in \{1, 5, 10, 50\}$ to control the severity of heterogeneity. The case $N_c=1$ (extreme non-I.I.D.) means each client sees only a single class, leading to highly divergent local updates.
 \end{itemize}
-In each communication round, a fraction $C=0.1$ of clients is sampled to perform local training for $J$ local epochs (steps)~\cite{mcmahan2017communication}.
+
+During local training, selected clients optimize their local models using Stochastic Gradient Descent (SGD) for a fixed number of local update steps $J$. We explore values of $J \in \{4, 8, 16\}$. Increasing $J$ reduces communication frequency but increases the risk of the local models drifting too far from the global model.
 
 \subsection{Sparse Optimization Algorithm}
-To mitigate interference, we implement a \textbf{SparseSGDM} optimizer that restricts updates to a subset of parameters. The process involves two key steps:
+A key challenge in FL with heterogeneous data is that clients may push the global model in conflicting directions. To address this, we utilize a \textbf{SparseSGDM} optimizer that restricts updates to a shared, "safe" subset of parameters. The method proceeds in two phases:
 
 \paragraph{1. Gradient Mask Calibration}
-Before the main training loop, we compute a binary mask $M \in \{0, 1\}^d$ identifying the ``least-sensitive'' parameters. We use the diagonal of the Fisher Information Matrix (FIM) as a proxy for sensitivity~\cite{iurada2025efficient}. Parameters with FIM values below a certain threshold are marked as trainable ($1$), while highly sensitive parameters are frozen ($0$) to preserve the pre-trained knowledge~\cite{iurada2025efficient}.
+Before federated training begins, we compute a binary mask $M \in \{0, 1\}^d$ that defines which parameters are allowed to change. We value parameter importance using the diagonal of the Fisher Information Matrix (FIM); Parameters with high Fisher information are critical for the model's pre-trained performance and should be preserved.
+Using a small calibration dataset on the server, we compute these sensitivity scores and apply a \textbf{Least-Sensitive} selection rule:
+\begin{itemize}
+    \item \textbf{Frozen ($M_i=0$):} Parameters with high sensitivity are locked to prevent catastrophic forgetting.
+    \item \textbf{Trainable ($M_i=1$):} Parameters with low sensitivity are marked as trainable, as modifying them has little negative impact on existing knowledge.
+\end{itemize}
+We set the sparsity ratio to $\rho=0.8$, meaning roughly 80\% of the network is frozen providing a good trade-off between plasticity and stability.. We compare this against \textbf{Random} and \textbf{Highest-Magnitude} masking baselines.
 
 \paragraph{2. Local Sparse Training}
-During local training, clients optimize the model using the mask $M$. The update rule for the weights $w$ at step $t$ is modified as follows:
+During communication rounds, all clients respect the global mask $M$. The local update rule for weights $w$ at iteration $t$ becomes:
 \begin{equation}
     w_{t+1} = w_t - \eta \cdot (M \odot \nabla \mathcal{L}(w_t))
 \end{equation}
-where $\odot$ denotes element-wise multiplication~\cite{iurada2025efficient}. This ensures that updates are confined to the safe, low-sensitivity subspace, facilitating additive composition during the server aggregation step~\cite{ilharco2023editing}.
+where $\odot$ is the element-wise product. This constraint forces all clients to update *only* the same sub-network. By coordinating the update subspace, we ensure that local models remain compatible with each other, facilitating meaningful aggregation even when clients train on vastly different data distributions ($N_c=1$).

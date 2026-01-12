@@ -1,4 +1,0 @@
-Experiment,Baseline Best Acc,Baseline Epochs,IID Best Val Acc,IID Rounds,Non-IID Best Val Acc
-100_epochs,N/A,0,33.24,100,15.98
-100_last,68.8,10,32.02,100,15.74
-300_epochs,69.26,10,51.02,300,30.1

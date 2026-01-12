@@ -22,21 +22,6 @@ def client_update(
     local_steps: int,
     criterion: Optional[nn.Module] = None
 ) -> Tuple[Dict[str, torch.Tensor], float, float, int]:
-    """
-    Performs local training on a single client.
-    
-    Args:
-        model: Model with global weights (will be copied)
-        train_loader: Client's training data loader
-        lr: Learning rate
-        weight_decay: Weight decay for optimizer
-        device: Device to use
-        local_steps: Number of local steps (J)
-        criterion: Loss function (default: CrossEntropyLoss)
-        
-    Returns:
-        Tuple of (updated state_dict, avg loss, avg accuracy, num samples)
-    """
     local_model = copy.deepcopy(model)
     local_model.to(device)
     local_model.train()
@@ -63,28 +48,16 @@ def fedavg_aggregate(
     client_state_dicts: List[Dict[str, torch.Tensor]],
     client_weights: List[float]
 ) -> None:
-    """
-    Aggregates client models using FedAvg (weighted average).
-    
-    Args:
-        global_model: Global model to update in-place
-        client_state_dicts: List of client state dicts
-        client_weights: Weights for each client (sum to 1)
-    """
-    # Normalize weights
     total_weight = sum(client_weights)
     normalized_weights = [w / total_weight for w in client_weights]
     
-    # Initialize aggregated state dict
     global_state = global_model.state_dict()
     aggregated_state = {k: torch.zeros_like(v) for k, v in global_state.items()}
     
-    # Weighted average
     for state_dict, weight in zip(client_state_dicts, normalized_weights):
         for key in aggregated_state:
             aggregated_state[key] += weight * state_dict[key].to(aggregated_state[key].device)
     
-    # Update global model
     global_model.load_state_dict(aggregated_state)
 
 
@@ -99,23 +72,6 @@ def run_fedavg_round(
     criterion: Optional[nn.Module] = None,
     show_progress: bool = False
 ) -> Tuple[float, float]:
-    """
-    Runs a single FedAvg round.
-    
-    Args:
-        global_model: Global model
-        client_loaders: List of all client data loaders
-        selected_clients: Indices of selected clients for this round
-        lr: Learning rate
-        weight_decay: Weight decay
-        device: Device to use
-        local_steps: Number of local steps (J)
-        criterion: Loss function
-        show_progress: Whether to show progress
-        
-    Returns:
-        Tuple of (average round loss, average round accuracy)
-    """
     client_state_dicts = []
     client_weights = []
     round_loss = AverageMeter()
@@ -135,7 +91,6 @@ def run_fedavg_round(
         round_loss.update(loss, n_samples)
         round_acc.update(acc, n_samples)
     
-    # Aggregate
     fedavg_aggregate(global_model, client_state_dicts, client_weights)
     
     return round_loss.avg, round_acc.avg
@@ -150,28 +105,6 @@ def run_fedavg(
     device: torch.device,
     callbacks: Optional[Dict[str, callable]] = None
 ) -> Dict[str, List[float]]:
-    """
-    Runs the complete FedAvg training.
-    
-    Args:
-        global_model: Initial global model
-        client_loaders: List of client data loaders
-        val_loader: Validation data loader
-        test_loader: Test data loader
-        config: Configuration dict with keys:
-            - num_rounds: Number of FL rounds
-            - num_clients: Total number of clients (K)
-            - clients_per_round: Fraction of clients per round (C)
-            - local_steps: Local steps per client (J)
-            - lr: Learning rate
-            - weight_decay: Weight decay
-            - seed: Random seed
-        device: Device to use
-        callbacks: Optional dict with 'on_round_end' callback
-        
-    Returns:
-        History dict with training metrics
-    """
     num_rounds = config.get('num_rounds', 100)
     num_clients = config.get('num_clients', 100)
     clients_per_round = config.get('clients_per_round', 0.1)
@@ -201,16 +134,13 @@ def run_fedavg(
     best_state_dict = None
     
     for round_idx in range(1, num_rounds + 1):
-        # Client selection
         selected_clients = np.random.choice(num_clients, m, replace=False).tolist()
         
-        # Run round
         train_loss, train_acc = run_fedavg_round(
             global_model, client_loaders, selected_clients,
             lr, weight_decay, device, local_steps, criterion
         )
         
-        # Evaluate
         if round_idx % eval_freq == 0 or round_idx == num_rounds:
             val_loss, val_acc = evaluate(global_model, val_loader, criterion, device, show_progress=False)
             test_loss, test_acc = evaluate(global_model, test_loader, criterion, device, show_progress=False)
@@ -218,7 +148,6 @@ def run_fedavg(
             val_loss, val_acc = float('nan'), float('nan')
             test_loss, test_acc = float('nan'), float('nan')
         
-        # Log
         history['round'].append(round_idx)
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
@@ -227,12 +156,10 @@ def run_fedavg(
         history['test_loss'].append(test_loss)
         history['test_acc'].append(test_acc)
         
-        # Best model checkpoint
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_state_dict = copy.deepcopy(global_model.state_dict())
         
-        # Callback
         if callbacks and 'on_round_end' in callbacks:
             callbacks['on_round_end'](round_idx, history, global_model)
         
@@ -241,7 +168,6 @@ def run_fedavg(
               f"Val Loss: {val_loss:.4f}, Acc: {val_acc:.2f}% | "
               f"Test Acc: {test_acc:.2f}%")
     
-    # Restore best model
     if best_state_dict is not None:
         global_model.load_state_dict(best_state_dict)
     

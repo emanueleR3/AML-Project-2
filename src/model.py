@@ -60,11 +60,6 @@ def apply_freeze_policy(
     freeze_policy: str = 'head_only',
     last_n_blocks: int = 1,
 ) -> bool:
-    """Apply a freeze policy to the backbone.
-
-    Returns:
-        freeze_backbone_flag: if True, backbone is fully frozen (head-only).
-    """
     policy = (freeze_policy or 'head_only').lower()
 
     if policy == 'head_only':
@@ -122,16 +117,6 @@ def count_params(model: nn.Module, trainable_only: bool = False) -> int:
 
 
 def build_model(config: Dict[str, Any]) -> DINOClassifier:
-    """Build a DINO classifier from a config dict.
-
-    Expected keys (with defaults):
-      - model_name: str = 'dino_vits16'
-      - num_classes: int = 100
-      - dropout: float = 0.1
-      - freeze_policy: 'head_only' | 'finetune_all' | 'last_blocks_only'
-      - last_n_blocks: int = 1
-      - device: torch.device | None
-    """
     model_name = config.get('model_name', 'dino_vits16')
     num_classes = int(config.get('num_classes', 100))
     dropout = float(config.get('dropout', 0.1))
