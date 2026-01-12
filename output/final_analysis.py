@@ -274,7 +274,7 @@ def plot_fedavg_iid_comparison(main_data: dict, extended_data: dict = None):
 
 
 def plot_noniid_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
-    """Create heatmap of Non-IID results (Nc × J)."""
+    """Create heatmap of Non-IID results (Nc × J) - Final Test Accuracy only."""
     if not noniid_results:
         print("⚠ No non-IID results found, skipping heatmap")
         return
@@ -283,8 +283,7 @@ def plot_noniid_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
     ncs = sorted(set(k[0] for k in noniid_results.keys()))
     js = sorted(set(k[1] for k in noniid_results.keys()))
     
-    # Create matrices for best and final accuracy
-    best_acc_matrix = np.full((len(ncs), len(js)), np.nan)
+    # Create matrix for final accuracy only
     final_acc_matrix = np.full((len(ncs), len(js)), np.nan)
     
     for (nc, j), data in noniid_results.items():
@@ -293,31 +292,18 @@ def plot_noniid_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
         final_acc, best_acc = extract_final_and_best_acc(data)
         if final_acc is not None:
             final_acc_matrix[nc_idx, j_idx] = final_acc
-        if best_acc is not None:
-            best_acc_matrix[nc_idx, j_idx] = best_acc
     
-    # Create figure with two heatmaps
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    # Create figure with single heatmap
+    fig, ax = plt.subplots(figsize=(6, 5))
     
-    # Best Accuracy Heatmap
-    ax1 = axes[0]
-    sns.heatmap(best_acc_matrix, annot=True, fmt='.1f', cmap='RdYlGn',
-                xticklabels=[f'J={j}' for j in js],
-                yticklabels=[f'Nc={nc}' for nc in ncs],
-                ax=ax1, cbar_kws={'label': 'Accuracy (%)'})
-    ax1.set_title('Non-IID: Best Test Accuracy (%)')
-    ax1.set_xlabel('Clients per Round (J)')
-    ax1.set_ylabel('Classes per Client (Nc)')
-    
-    # Final Accuracy Heatmap
-    ax2 = axes[1]
+    # Final Accuracy Heatmap only
     sns.heatmap(final_acc_matrix, annot=True, fmt='.1f', cmap='RdYlGn',
                 xticklabels=[f'J={j}' for j in js],
                 yticklabels=[f'Nc={nc}' for nc in ncs],
-                ax=ax2, cbar_kws={'label': 'Accuracy (%)'})
-    ax2.set_title('Non-IID: Final Test Accuracy (%)')
-    ax2.set_xlabel('Clients per Round (J)')
-    ax2.set_ylabel('Classes per Client (Nc)')
+                ax=ax, cbar_kws={'label': 'Accuracy (%)'})
+    ax.set_title('Non-IID: Final Test Accuracy (%)')
+    ax.set_xlabel('Local Steps (J)')
+    ax.set_ylabel('Classes per Client (Nc)')
     
     plt.tight_layout()
     plt.savefig(FIGURES_DIR / 'noniid_heatmap.png')
@@ -351,7 +337,7 @@ def create_noniid_table(noniid_results: Dict[Tuple[int, int], dict],
 
 def plot_sparse_fedavg_comparison(sparse_results: Dict[str, dict], 
                                   fedavg_iid_data: dict = None):
-    """Plot sparse FedAvg comparison across mask rules."""
+    """Plot sparse FedAvg comparison across mask rules - using test accuracy only."""
     if not sparse_results:
         print("⚠ No sparse FedAvg results found, skipping")
         return
@@ -371,14 +357,13 @@ def plot_sparse_fedavg_comparison(sparse_results: Dict[str, dict],
         'exp_niid_rnd': 'Non-IID + Random',
     }
     
-    # Plot 1: Validation Accuracy Curves
+    # Plot 1: Test Accuracy Curves
     ax1 = axes[0]
     
     # Plot dense FedAvg IID as baseline
     if fedavg_iid_data:
-        # Use test_acc if available
-        acc_key = 'test_acc' if 'test_acc' in fedavg_iid_data else 'val_acc'
-        acc = np.array(fedavg_iid_data[acc_key])
+        # Use test_acc
+        acc = np.array(fedavg_iid_data['test_acc'])
         rounds = np.array(fedavg_iid_data['round'])
         valid_mask = ~np.isnan(acc)
         ax1.plot(rounds[valid_mask], acc[valid_mask],
@@ -388,15 +373,16 @@ def plot_sparse_fedavg_comparison(sparse_results: Dict[str, dict],
     for exp_name, data in sparse_results.items():
         color = exp_colors.get(exp_name, 'gray')
         label = exp_labels.get(exp_name, exp_name)
-        ax1.plot(data['round'], data['val_acc'],
+        # Use test_acc instead of val_acc
+        ax1.plot(data['round'], data['test_acc'],
                  color=color, linewidth=2, label=label)
     
     ax1.set_xlabel('Communication Round')
-    ax1.set_ylabel('Validation Accuracy (%)')
+    ax1.set_ylabel('Test Accuracy (%)')
     ax1.set_title('Sparse FedAvg (80% Sparsity) - Convergence')
     ax1.legend(loc='lower right')
     
-    # Plot 2: Final/Best Accuracy Bar Chart
+    # Plot 2: Final/Best Accuracy Bar Chart (using test_acc)
     ax2 = axes[1]
     
     exp_names = list(sparse_results.keys())
@@ -407,8 +393,9 @@ def plot_sparse_fedavg_comparison(sparse_results: Dict[str, dict],
     
     for exp_name in exp_names:
         data = sparse_results[exp_name]
-        final_acc = data['val_acc'][-1] if data['val_acc'] else 0
-        best_acc = max(data['val_acc']) if data['val_acc'] else 0
+        # Use test_acc
+        final_acc = data['test_acc'][-1] if data['test_acc'] else 0
+        best_acc = max(data['test_acc']) if data['test_acc'] else 0
         final_accs.append(final_acc)
         best_accs.append(best_acc)
         labels.append(exp_labels.get(exp_name, exp_name))
@@ -420,8 +407,8 @@ def plot_sparse_fedavg_comparison(sparse_results: Dict[str, dict],
     bars1 = ax2.bar(x - width/2, final_accs, width, label='Final Acc', color=colors, alpha=0.7)
     bars2 = ax2.bar(x + width/2, best_accs, width, label='Best Acc', color=colors, alpha=1.0)
     
-    ax2.set_ylabel('Accuracy (%)')
-    ax2.set_title('Sparse FedAvg - Final vs Best Accuracy')
+    ax2.set_ylabel('Test Accuracy (%)')
+    ax2.set_title('Sparse FedAvg - Final vs Best Test Accuracy')
     ax2.set_xticks(x)
     ax2.set_xticklabels([l.replace(' + ', '\n') for l in labels], fontsize=9)
     ax2.legend()
@@ -441,15 +428,11 @@ def plot_sparse_fedavg_comparison(sparse_results: Dict[str, dict],
                      xytext=(0, 3), textcoords="offset points",
                      ha='center', va='bottom', fontsize=8)
     
-    # Add dense baseline line using best_val_acc if available
+    # Add dense baseline line using test_acc
     if fedavg_iid_data:
-        if 'best_val_acc' in fedavg_iid_data:
-            dense_best = fedavg_iid_data['best_val_acc']
-        else:
-            acc_key = 'test_acc' if 'test_acc' in fedavg_iid_data else 'val_acc'
-            acc = np.array(fedavg_iid_data[acc_key])
-            valid_acc = acc[~np.isnan(acc)]
-            dense_best = max(valid_acc) if len(valid_acc) > 0 else 0
+        acc = np.array(fedavg_iid_data['test_acc'])
+        valid_acc = acc[~np.isnan(acc)]
+        dense_best = max(valid_acc) if len(valid_acc) > 0 else 0
         ax2.axhline(y=dense_best, color=COLORS['fedavg_iid'], linestyle='--', 
                     alpha=0.8, label=f'Dense FedAvg Best ({dense_best:.1f}%)')
         ax2.legend(loc='upper right')

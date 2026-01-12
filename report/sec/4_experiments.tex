@@ -1,0 +1,142 @@
+\section{Experiments}
+\label{sec:experiments}
+
+In this section, we present our experimental setup and analyze the results obtained across different federated learning configurations, including baseline comparisons and our proposed sparse fine-tuning approach.
+
+\subsection{Dataset and Metrics}
+\label{subsec:dataset}
+
+We evaluate our methods on \textbf{CIFAR-100}, a widely used benchmark in image classification containing 60,000 32$\times$32 color images across 100 fine-grained classes. The dataset is split into 50,000 training images and 10,000 test images. We further partition the training set to create a 90/10 train/validation split for hyperparameter tuning.
+
+We report the following metrics:
+\begin{itemize}
+    \item \textbf{Test Accuracy (\%):} Classification accuracy on the held-out test set.
+    \item \textbf{Cross-Entropy Loss:} Standard loss function for multi-class classification.
+\end{itemize}
+
+All experiments use a DINO ViT-S/16 backbone with a linear classification head (embedding dimension $\rightarrow$ 100 classes), trained with AdamW optimizer, cosine annealing learning rate scheduler, and a batch size of 64.
+
+\subsection{Baselines}
+\label{subsec:baselines}
+
+We establish two key baselines to contextualize our federated learning results:
+
+\paragraph{Centralized Training.}
+This represents the empirical upper bound, where all data is available on a single machine. After 20 epochs of fine-tuning the classification head (backbone frozen), the centralized model achieves \textbf{68.80\%} test accuracy. Extended training to 30 epochs yields \textbf{69.26\%}. These results confirm that the pre-trained DINO representations transfer effectively to CIFAR-100.
+
+\paragraph{FedAvg Standard (IID).}
+The standard Federated Averaging algorithm serves as our FL baseline. With $K=100$ clients, $C=0.1$ participation rate, and $J=4$ local steps per round, FedAvg achieves \textbf{36.93\%} test accuracy after 100 rounds. Extended training to 300 rounds improves this to \textbf{57.99\%}. The gap from the centralized baseline (approximately 11 percentage points at 300 rounds) illustrates the inherent challenges of distributed optimization, even under favorable IID conditions.
+
+\begin{table}[t]
+\centering
+\caption{Baseline Results Summary. The centralized model represents the upper bound, while FedAvg IID serves as the FL benchmark.}
+\label{tab:baselines}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Epochs/Rounds} & \textbf{Test Acc (\%)} \\
+\midrule
+Centralized & 20 epochs & 68.80 \\
+Centralized (extended) & 30 epochs & 69.26 \\
+\midrule
+FedAvg IID & 100 rounds & 36.93 \\
+FedAvg IID (extended) & 300 rounds & 57.99 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Impact of Data Heterogeneity}
+\label{subsec:noniid}
+
+To study the effect of statistical heterogeneity, we conduct a systematic sweep over the number of classes per client ($N_c$) and local training steps ($J$). Table~\ref{tab:noniid} summarizes the final test accuracy for each configuration after 100 communication rounds.
+
+\begin{table}[t]
+\centering
+\caption{Non-IID Experiment Results. Final test accuracy (\%) after 100 rounds for different levels of heterogeneity ($N_c$) and local computation ($J$). Higher $N_c$ indicates more classes per client (closer to IID).}
+\label{tab:noniid}
+\begin{tabular}{c|ccc}
+\toprule
+\diagbox{$N_c$}{$J$} & 4 & 8 & 16 \\
+\midrule
+1  & 19.70 & 23.94 & 25.15 \\
+5  & 30.11 & 44.13 & 49.11 \\
+10 & 33.61 & 51.74 & 59.15 \\
+50 & 37.49 & 57.66 & 66.05 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Several key observations emerge from these results:
+
+\paragraph{Effect of Heterogeneity ($N_c$).}
+Increasing $N_c$ (more classes per client) consistently improves accuracy. With $J=16$, performance ranges from 25.15\% ($N_c=1$, extreme heterogeneity) to 66.05\% ($N_c=50$, near-IID). The most dramatic improvements occur between $N_c=1$ and $N_c=5$, suggesting that even moderate class diversity significantly mitigates the negative effects of non-IID data.
+
+\paragraph{Effect of Local Steps ($J$).}
+Increasing local computation leads to higher accuracy across all $N_c$ settings. For instance, at $N_c=50$, accuracy improves from 37.49\% ($J=4$) to 66.05\% ($J=16$),  
+substantially closing the gap with the centralized baseline. This suggests that a well-initialized representation enables more effective local optimization of the classification head, particularly when client data distributions are sufficiently diverse.
+
+\paragraph{Interaction Effects.}
+The benefits of increased local steps are amplified in less heterogeneous settings. At $N_c=1$, increasing $J$ from 4 to 16 yields only a 5.45pp improvement, while at $N_c=50$, the same increase produces a 28.56pp gain. This is an important consideration for practical FL deployments: investing in more local computation pays off primarily when clients have reasonably diverse data.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{output/figures/noniid_heatmap.pdf}
+\caption{Heatmap of final test accuracy across the $N_c \times J$ grid. Warmer colors indicate higher accuracy.}
+\label{fig:noniid_heatmap}
+\end{figure}
+
+\subsection{Sparse Fine-Tuning Results}
+\label{subsec:sparse}
+
+We evaluate our proposed Sparse FedAvg approach, which restricts gradient updates to the least-sensitive 20\% of parameters (i.e., 80\% sparsity), as identified via Fisher Information computed on the pretrained model. This method aims to reduce interference between client updates by preserving the pre-trained knowledge in high-sensitivity regions.
+
+\begin{table}[t]
+\centering
+\caption{Sparse FedAvg Results (100 rounds, 80\% sparsity). LS = Least Sensitive, NIID = Non-IID.}
+\label{tab:sparse}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{Data} & \textbf{Mask} & \textbf{Acc (\%)} \\
+\midrule
+Dense FA & IID & — & 36.93 \\
+Dense FA & NIID ($N_c$=1) & — & 19.70 \\
+\midrule
+Sparse FA & IID & LS & \textbf{61.68} \\
+Sparse FA & NIID ($N_c$=1) & LS & 35.76 \\
+Sparse FA & NIID ($N_c$=1) & Random & 26.14 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{IID Setting.}
+Sparse FedAvg with the least-sensitive mask achieves \textbf{61.68\%} test accuracy, substantially outperforming dense FedAvg at 36.93\% (+24.75pp). This result suggests that constraining updates to low-sensitivity parameters accelerates convergence and improves final performance, even when data is uniformly distributed across clients. We attribute this improvement to reduced aggregation noise and improved preservation of pretrained representations under partial participation.
+
+\paragraph{Non-IID Setting.}
+Under extreme heterogeneity ($N_c=1$), Sparse FedAvg with least-sensitive masking reaches 35.76\%, compared to 19.70\% for dense FedAvg (+16.06pp). While the absolute accuracy remains modest due to the challenging data distribution, the relative improvement (over 80\% better) highlights the robustness of sparse fine-tuning in challenging federated scenarios.
+
+\paragraph{Masking Strategy Comparison.}
+The choice of masking strategy matters significantly. The least-sensitive approach outperforms random masking by 9.62pp in the non-IID setting (35.76\% vs. 26.14\%), supporting the hypothesis that Fisher Information provides an effective criterion for identifying parameters that can be safely updated without degrading pretrained features.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.7\textwidth]{output/figures/sparse_fedavg_comparison.pdf}
+\caption{Comparison of Sparse FedAvg with different masking strategies. The least-sensitive approach consistently outperforms random masking, confirming the importance of principled parameter selection.}
+\label{fig:sparse_comparison}
+\end{figure*}
+
+\subsection{Discussion}
+\label{subsec:discussion}
+
+Our experiments reveal several important findings:
+
+\begin{enumerate}
+    \item \textbf{FL Gap.} Standard FedAvg exhibits a substantial performance gap compared to centralized training, particularly at short training horizons (e.g., 100 communication rounds). This gap motivates the need for improved FL algorithms.
+    
+    \item \textbf{Heterogeneity Matters.} Non-IID data distributions significantly slow convergence. For example, the difference between extreme label skew ($N_c=1$) and near-IID ($N_c=50$) can exceed 40 percentage points, highlighting the importance of addressing statistical heterogeneity in FL.
+    
+    \item \textbf{Sparse Training Helps.} Our sparse fine-tuning approach consistently improves over dense FedAvg. By updating only low-sensitivity parameters, we achieve more effective adaptation of the classification head while preserving pre-trained features, reducing update interference.
+    
+    \item \textbf{Mask Selection is Critical.} The Fisher Information-based least-sensitive masking outperforms random masking, confirming that principled parameter selection is essential for effective sparse optimization.
+\end{enumerate}
+
+\paragraph{Limitations.}
+While our results are promising, we note several limitations. (1) The experiments are conducted with a fixed sparsity ratio of 80\%; exploring different ratios could yield further insights. (2) We focus on a single backbone (DINO ViT-S/16); generalization to other architectures remains to be verified. (3) Our non-IID simulation assumes disjoint class distributions, which may not fully reflect real-world heterogeneity patterns. (4) Results are reported on CIFAR-100; further validation on larger-scale datasets is needed.
