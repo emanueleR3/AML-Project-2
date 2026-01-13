@@ -18,8 +18,7 @@ This project explores **Federated Learning** using pretrained **DINO ViT-S/16** 
 AML-Project-2/
 ├── notebooks/                      # Jupyter notebooks (Kaggle/Colab)
 │   ├── kaggle_runner1.ipynb       # Central baseline + FedAvg IID + Non-IID (scaled rounds)
-│   ├── kaggle_runner2.ipynb       # Sparse FedAvg experiments
-│   └── kaggle_runner_scaled.ipynb # Alternative scaled rounds notebook
+│   └── kaggle_runner2.ipynb       # Sparse FedAvg: ablations + all 5 mask rules
 ├── src/                           # Source code
 │   ├── data.py                   # Data loading & partitioning (IID/non-IID)
 │   ├── model.py                  # DINO classifier models
@@ -27,9 +26,12 @@ AML-Project-2/
 │   ├── train.py                  # Training logic (local & centralized)
 │   ├── fedavg.py                 # FedAvg implementation
 │   ├── sparse_fedavg.py          # Sparse FedAvg with masking
+│   ├── optim.py                  # SparseSGDM optimizer
 │   └── masking.py                # Fisher Information & gradient sparsification
 ├── output/                        # Experiment results
-│   ├── main/                     # Main results (checkpoints + metrics)
+│   ├── main/                     # Dense FedAvg results (baselines + non-IID)
+│   ├── extended/                 # Extended training results (300 rounds)
+│   ├── sparse/                   # Sparse FedAvg results (all mask rules)
 │   └── figures/                  # Generated plots
 ├── report/                        # LaTeX report
 └── requirements.txt               # Python dependencies
@@ -59,59 +61,19 @@ AML-Project-2/
 !pip install -r requirements.txt
 ```
 
-### Option 3: Local Setup
-
-```bash
-git clone https://github.com/emanueleR3/AML-Project-2.git
-cd AML-Project-2
-pip install -r requirements.txt
-```
-
 ---
 
-## 📊 Reproducing Experiments
+## Reproducing Experiments
 
-### Experiment 1: Central Baseline (Section 4.2)
+### Notebook 1: `kaggle_runner1.ipynb` (~6 hours)
 
-**Notebook**: `kaggle_runner1.ipynb` (first cells)
+**Contains:**
+- Central Baseline (20 epochs)
+- FedAvg IID (100-300 rounds)
+- Non-IID Sweep with **Scaled Rounds**
 
-**What it does**:
-- Loads DINO ViT-S/16 pretrained backbone
-- Fine-tunes classification head on CIFAR-100
-- Trains for 20 epochs with AdamW + Cosine Annealing
-
-**Expected Output**:
-- `output/main/central_baseline.pt` - Best model checkpoint
-- `output/main/central_baseline_metrics.json` - Training history
-- **Test Accuracy**: ~68.80%
-
----
-
-### Experiment 2: FedAvg IID (Section 4.2)
-
-**Notebook**: `kaggle_runner1.ipynb` (FedAvg IID section)
-
-**Configuration**:
-| Parameter | Value |
-|-----------|-------|
-| Clients (K) | 100 |
-| Participation (C) | 0.1 |
-| Local Steps (J) | 4 |
-| Rounds | 300 |
-
-**Expected Output**:
-- `output/main/fedavg_iid_metrics.json`
-- `output/main/fedavg_iid_best.pt`
-- **Test Accuracy**: ~57.99% (300 rounds)
-
----
-
-### Experiment 3: Non-IID Sweep with Scaled Rounds (Section 4.3)
-
-**Notebook**: `kaggle_runner1.ipynb` (Non-IID Sweep section)
-
-**What it does**:
-Sweeps over heterogeneity levels and local steps with **scaled rounds** to maintain constant total computation:
+**Scaled Rounds Configuration:**
+When increasing local steps J, rounds are scaled inversely to keep total computation constant:
 
 | J | Rounds | Total Steps |
 |---|--------|-------------|
@@ -119,78 +81,77 @@ Sweeps over heterogeneity levels and local steps with **scaled rounds** to maint
 | 8 | 50 | 400 |
 | 16 | 25 | 400 |
 
-**Nc (Classes per Client)**: [1, 5, 10, 50]
+**Nc Values**: 1, 5, 10, 50 (classes per client)
 
-**Expected Output**:
-- `output/main/noniid_nc{Nc}_j{J}.json` for each configuration
-- 12 total experiments (4 Nc × 3 J values)
-
----
-
-### Experiment 4: Sparse FedAvg (Section 4.4)
-
-**Notebook**: `kaggle_runner2.ipynb`
-
-**What it does**:
-- Computes Fisher Information scores on pretrained model
-- Creates masks selecting least-sensitive 20% of parameters (80% sparsity)
-- Runs FedAvg with sparse updates
-
-**Configurations**:
-1. **Sparse IID** - Least Sensitive mask
-2. **Sparse Non-IID (Nc=1)** - Least Sensitive mask
-3. **Sparse Non-IID (Nc=1)** - Random mask (baseline)
-
-**Expected Output**:
-- `output/main/sparse_fedavg_*.json`
-- Sparse IID Test Accuracy: ~61.68%
-- Sparse Non-IID (LS) Test Accuracy: ~35.76%
+**Output:**
+- `output/main/central_baseline.pt` - Pretrained baseline
+- `output/main/fedavg_iid_metrics.json` - IID results
+- `output/main/noniid_nc{Nc}_j{J}.json` - Non-IID results
 
 ---
 
-## ⏱️ Estimated Runtime
+### Notebook 2: `kaggle_runner2.ipynb` (~10.5 hours)
+
+**Phase 1: Ablation Studies (50 rounds each)**
+
+1. **Calibration Rounds Sweep**: 1, 3, 5, 10 rounds
+   - Multi-round Fisher Information calibration (Paper [15] Sec. 4.2)
+   
+2. **Sparsity Ratio Sweep**: 60%, 70%, 80%, 90%
+
+**Phase 2: Final Experiments (100 rounds each)**
+
+All 5 mask rules tested on Non-IID (Nc=1) data:
+
+| Mask Rule | Description |
+|-----------|-------------|
+| `least_sensitive` | Lowest Fisher Information scores |
+| `most_sensitive` | Highest Fisher Information scores |
+| `lowest_magnitude` | Smallest absolute weights |
+| `highest_magnitude` | Largest absolute weights |
+| `random` | Random parameter selection |
+
+Plus: IID + Least Sensitive baseline
+
+**Output:**
+- `output/sparse/ablation_calib{N}.json` - Calibration ablations
+- `output/sparse/ablation_sparsity{N}.json` - Sparsity ablations
+- `output/sparse/exp_iid_ls.json` - IID sparse results
+- `output/sparse/exp_noniid_{rule}.json` - Non-IID with each mask rule
+- `output/sparse/complete_summary.json` - Combined summary
+
+---
+
+## Estimated Runtime
 
 | Experiment | GPU (T4) | GPU (P100) |
 |------------|----------|------------|
 | Central Baseline (20 epochs) | ~15 min | ~10 min |
 | FedAvg IID (300 rounds) | ~3 hours | ~2 hours |
-| Non-IID Sweep (12 configs × 100 rounds) | ~6 hours | ~4 hours |
-| Sparse FedAvg (3 configs × 100 rounds) | ~1.5 hours | ~1 hour |
+| Non-IID Sweep (12 configs, scaled) | ~3 hours | ~2 hours |
+| Sparse Ablations (8 configs × 50 rounds) | ~4 hours | ~3 hours |
+| Sparse Final (6 configs × 100 rounds) | ~6 hours | ~4 hours |
 
 ---
 
-## 📁 Output Files
+## Analysis Script
 
-### Metrics JSON Format
+After running experiments, generate figures and tables:
 
-Each experiment saves a JSON file with:
-```json
-{
-  "round": [1, 2, ..., N],
-  "train_loss": [...],
-  "train_acc": [...],
-  "val_loss": [...],
-  "val_acc": [...],
-  "test_loss": [...],
-  "test_acc": [...],
-  "best_val_acc": 0.0
-}
+```bash
+cd output
+python final_analysis.py
 ```
 
-### Checkpoints
-
-Model checkpoints (`.pt` files) contain:
-```python
-{
-  "model_state_dict": model.state_dict()
-}
-```
-
-To load:
-```python
-checkpoint = torch.load('output/main/central_baseline.pt')
-model.load_state_dict(checkpoint['model_state_dict'])
-```
+**Generates:**
+- `figures/central_baseline_curves.pdf`
+- `figures/fedavg_iid_convergence.pdf`
+- `figures/noniid_heatmap.pdf`
+- `figures/sparse_fedavg_comparison.pdf`
+- `figures/ablation_studies.pdf`
+- `summary_results.csv`
+- `summary_table.tex`
+- `noniid_table.tex`
 
 ---
 
@@ -201,29 +162,30 @@ model.load_state_dict(checkpoint['model_state_dict'])
 ```python
 config = {
     'num_clients': 100,        # K: Total clients
-    'clients_per_round': 0.1,  # C: Fraction sampled per round
+    'clients_per_round': 0.1,  # C: Fraction sampled per round (10 clients)
     'local_steps': 4,          # J: Local SGD steps
     'num_rounds': 100,         # Communication rounds
     'batch_size': 64,
-    'lr': 0.001,               # Learning rate
+    'lr': 0.001,
     'weight_decay': 1e-4,
     'seed': 42,
-    'eval_freq': 10            # Evaluate every N rounds
+    'eval_freq': 10
 }
 ```
 
-### Non-IID Partitioning
+### Sparse FedAvg Configuration
 
 ```python
-from src.data import partition_non_iid
+OPTIMAL_CALIB = 3      # Calibration rounds (from ablation)
+OPTIMAL_SPARSITY = 0.8 # 80% sparsity (20% params updated)
 
-# Nc = number of classes per client
-client_datasets = partition_non_iid(
-    train_dataset, 
-    num_clients=100, 
-    num_classes_per_client=5,  # Nc
-    seed=42
-)
+MASK_RULES = [
+    'least_sensitive',
+    'most_sensitive',
+    'lowest_magnitude',
+    'highest_magnitude',
+    'random'
+]
 ```
 
 ---
@@ -237,9 +199,10 @@ numpy
 matplotlib
 tqdm
 pandas
+seaborn
 ```
 
-Install with:
+Install:
 ```bash
 pip install -r requirements.txt
 ```
