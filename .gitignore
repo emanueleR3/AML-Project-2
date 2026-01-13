@@ -70,7 +70,7 @@ tb_logs/
 # Checkpoints
 *.ckpt
 *.pth
-*.pt
+
 *.bin
 checkpoints/
 **/checkpoints/
