@@ -38,7 +38,7 @@ Using a small calibration dataset on the server, we compute these sensitivity sc
     \item \textbf{Frozen ($M_i=0$):} Parameters with high sensitivity are locked to prevent catastrophic forgetting.
     \item \textbf{Trainable ($M_i=1$):} Parameters with low sensitivity are marked as trainable, as modifying them has little negative impact on existing knowledge.
 \end{itemize}
-We set the sparsity ratio to $\rho=0.8$, meaning roughly 80\% of the network is frozen providing a good trade-off between plasticity and stability.. We compare this against \textbf{Random} and \textbf{Highest-Magnitude} masking baselines.
+We set the sparsity ratio to $\rho=0.8$, meaning roughly 80\% of the network is frozen providing a good trade-off between plasticity and stability. We compare this against \textbf{Random} and \textbf{Highest-Magnitude} masking baselines.
 
 \paragraph{2. Local Sparse Training}
 During communication rounds, all clients respect the global mask $M$. The local update rule for weights $w$ at iteration $t$ becomes:

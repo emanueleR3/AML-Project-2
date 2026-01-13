@@ -75,8 +75,7 @@ tb_logs/
 checkpoints/
 **/checkpoints/
 
-# Figures (generated)
-*.png
+
 *.jpg
 *.jpeg
 *.svg
