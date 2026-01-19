@@ -82,7 +82,8 @@ def apply_freeze_policy(
 class DINOClassifier(nn.Module):
     def __init__(self, model_name: str = 'dino_vits16', num_classes: int = 100,
                  freeze_backbone: bool = True, dropout: float = 0.1, device=None,
-                 freeze_policy: Optional[str] = None, last_n_blocks: int = 1):
+                 freeze_policy: Optional[str] = None, last_n_blocks: int = 1,
+                 freeze_head: bool = False):
         super().__init__()
         self.backbone = load_dino_backbone(model_name, device)
 
@@ -95,22 +96,22 @@ class DINOClassifier(nn.Module):
         
         embed_dim = DINO_EMBED_DIMS.get(model_name, 384)
         self.classifier = nn.Sequential(
-            nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim, 512),
-            nn.LayerNorm(512),
-            nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, 256),
-            nn.LayerNorm(256),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(256, num_classes)
+            nn.Linear(embed_dim, num_classes)
         )
+        
+        self.freeze_head = freeze_head
+        if self.freeze_head:
+            freeze_model(self.classifier)
     
     def forward(self, x: torch.Tensor):
         with torch.set_grad_enabled(not self.freeze_backbone):
             features = self.backbone(x)
-        return self.classifier(features)
+        
+        with torch.set_grad_enabled(not self.freeze_head):
+            logits = self.classifier(features)
+            
+        return logits
     
     def get_trainable_params(self):
         return [p for p in self.parameters() if p.requires_grad]
@@ -130,6 +131,7 @@ def build_model(config: Dict[str, Any]) -> DINOClassifier:
     dropout = float(config.get('dropout', 0.1))
     freeze_policy = config.get('freeze_policy', 'head_only')
     last_n_blocks = int(config.get('last_n_blocks', 1))
+    freeze_head = bool(config.get('freeze_head', False))
     device = config.get('device', None)
 
     return DINOClassifier(
@@ -139,4 +141,5 @@ def build_model(config: Dict[str, Any]) -> DINOClassifier:
         device=device,
         freeze_policy=freeze_policy,
         last_n_blocks=last_n_blocks,
+        freeze_head=freeze_head,
     )
