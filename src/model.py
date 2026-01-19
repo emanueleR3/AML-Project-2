@@ -105,12 +105,11 @@ class DINOClassifier(nn.Module):
             freeze_model(self.classifier)
     
     def forward(self, x: torch.Tensor):
-        with torch.set_grad_enabled(not self.freeze_backbone):
-            features = self.backbone(x)
-        
-        with torch.set_grad_enabled(not self.freeze_head):
-            logits = self.classifier(features)
-            
+        # We rely on requires_grad=False on parameters to freeze them.
+        # We MUST NOT use no_grad() here, otherwise gradients won't flow through 
+        # the classifier back to the backbone.
+        features = self.backbone(x)
+        logits = self.classifier(features)
         return logits
     
     def get_trainable_params(self):
