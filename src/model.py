@@ -95,8 +95,16 @@ class DINOClassifier(nn.Module):
         
         embed_dim = DINO_EMBED_DIMS.get(model_name, 384)
         self.classifier = nn.Sequential(
+            nn.LayerNorm(embed_dim),
+            nn.Linear(embed_dim, 512),
+            nn.LayerNorm(512),
+            nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(embed_dim, num_classes)
+            nn.Linear(512, 256),
+            nn.LayerNorm(256),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(256, num_classes)
         )
     
     def forward(self, x: torch.Tensor):
