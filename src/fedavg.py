@@ -20,11 +20,25 @@ def client_update(
     weight_decay: float,
     device: torch.device,
     local_steps: int,
-    criterion: Optional[nn.Module] = None
+    criterion: Optional[nn.Module] = None,
+    mask: Optional[Dict[str, torch.Tensor]] = None
 ) -> Tuple[Dict[str, torch.Tensor], float, float, int]:
     local_model = copy.deepcopy(model)
     local_model.to(device)
     local_model.train()
+    
+    # Register hooks if mask is provided
+    handles = []
+    if mask is not None:
+        def get_mask_hook(mask_tensor):
+            def hook(grad):
+                return grad * mask_tensor.to(grad.device)
+            return hook
+            
+        for n, p in local_model.named_parameters():
+            if n in mask and p.requires_grad:
+                h = p.register_hook(get_mask_hook(mask[n]))
+                handles.append(h)
     
     if criterion is None:
         criterion = nn.CrossEntropyLoss()
@@ -39,6 +53,9 @@ def client_update(
     avg_loss, avg_acc, n_samples = local_train(
         local_model, train_loader, optimizer, criterion, device, local_steps
     )
+    
+    # Remove hooks (good practice, though model is discarded)
+    for h in handles: h.remove()
     
     return local_model.state_dict(), avg_loss, avg_acc, n_samples
 
@@ -70,7 +87,8 @@ def run_fedavg_round(
     device: torch.device,
     local_steps: int,
     criterion: Optional[nn.Module] = None,
-    show_progress: bool = False
+    show_progress: bool = False,
+    mask: Optional[Dict[str, torch.Tensor]] = None
 ) -> Tuple[float, float]:
     client_state_dicts = []
     client_weights = []
@@ -83,7 +101,7 @@ def run_fedavg_round(
         loader = client_loaders[client_idx]
         
         state_dict, loss, acc, n_samples = client_update(
-            global_model, loader, lr, weight_decay, device, local_steps, criterion
+            global_model, loader, lr, weight_decay, device, local_steps, criterion, mask
         )
         
         client_state_dicts.append(state_dict)
@@ -103,7 +121,8 @@ def run_fedavg(
     test_loader: DataLoader,
     config: Dict[str, Any],
     device: torch.device,
-    callbacks: Optional[Dict[str, callable]] = None
+    callbacks: Optional[Dict[str, callable]] = None,
+    mask: Optional[Dict[str, torch.Tensor]] = None
 ) -> Dict[str, List[float]]:
     num_rounds = config.get('num_rounds', 100)
     num_clients = config.get('num_clients', 100)
@@ -138,7 +157,7 @@ def run_fedavg(
         
         train_loss, train_acc = run_fedavg_round(
             global_model, client_loaders, selected_clients,
-            lr, weight_decay, device, local_steps, criterion
+            lr, weight_decay, device, local_steps, criterion, False, mask
         )
         
         if round_idx % eval_freq == 0 or round_idx == num_rounds:
