@@ -25,12 +25,20 @@ def client_update_sparse(
     if criterion is None:
         criterion = nn.CrossEntropyLoss()
     
+    # Map mask keys from name -> id(p) for the optimizer
+    # (Because shape-based matching is ambiguous for ViT)
+    optimizer_mask = {}
+    if mask is not None:
+        for name, p in local_model.named_parameters():
+             if name in mask:
+                 optimizer_mask[id(p)] = mask[name]
+
     optimizer = SparseSGDM(
         local_model.get_trainable_params(),
         lr=lr,
         momentum=0.9,
         weight_decay=weight_decay,
-        mask=mask,
+        mask=optimizer_mask,
         apply_wd_to_masked_only=True
     )
     

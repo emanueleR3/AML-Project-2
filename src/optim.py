@@ -69,14 +69,9 @@ class SparseSGDM(Optimizer):
                 
                 d_p = p.grad
                 
-                mask_tensor = None
-                param_id = id(p)
-                
-                if len(self.mask) > 0:
-                    for mask_key, mask_val in self.mask.items():
-                        if mask_val.shape == d_p.shape:
-                            mask_tensor = mask_val
-                            break
+                # Use id(p) to find the correct mask
+                if id(p) in self.mask:
+                     mask_tensor = self.mask[id(p)]
                 
                 if mask_tensor is not None:
                     mask_tensor = mask_tensor.to(d_p.device)
