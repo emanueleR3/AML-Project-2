@@ -105,9 +105,6 @@ class DINOClassifier(nn.Module):
             freeze_model(self.classifier)
     
     def forward(self, x: torch.Tensor):
-        # We rely on requires_grad=False on parameters to freeze them.
-        # We MUST NOT use no_grad() here, otherwise gradients won't flow through 
-        # the classifier back to the backbone.
         features = self.backbone(x)
         logits = self.classifier(features)
         return logits

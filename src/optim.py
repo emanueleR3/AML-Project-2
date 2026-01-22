@@ -1,21 +1,3 @@
-"""
-Sparse optimizers for Federated Learning.
-
-SparseSGDM: SGD with Momentum that applies mask to gradients.
-
-La mask viene applicata ai gradienti PRIMA dell'update:
-    d_p = d_p * mask
-    
-Ciò permette di allenare solo i pesi "attivi" (mask==1) senza modificare
-i pesi mascherati (mask==0) durante il training.
-
-Policy documentate:
-- Momentum: applicato normalmente a tutti i gradienti (sia attivi che inattivi)
-  nel buffer. Questo è corretto perché momentum è storia dell'ottimizzazione.
-- Weight decay: applicato solo ai parametri attivi (flag apply_wd_to_masked_only=True).
-  Se un peso è mascherato, non deve nemmeno "decadere" per non inquinare l'update.
-"""
-
 import torch
 from torch.optim import Optimizer
 from typing import Dict, Optional, Iterable
@@ -69,7 +51,6 @@ class SparseSGDM(Optimizer):
                 
                 d_p = p.grad
                 
-                # Use id(p) to find the correct mask
                 if id(p) in self.mask:
                      mask_tensor = self.mask[id(p)]
                 

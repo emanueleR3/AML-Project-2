@@ -1,5 +1,3 @@
-"""Training utilities for Federated Learning experiments."""
-
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer

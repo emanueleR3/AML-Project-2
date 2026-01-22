@@ -25,8 +25,6 @@ def client_update_sparse(
     if criterion is None:
         criterion = nn.CrossEntropyLoss()
     
-    # Map mask keys from name -> id(p) for the optimizer
-    # (Because shape-based matching is ambiguous for ViT)
     optimizer_mask = {}
     if mask is not None:
         for name, p in local_model.named_parameters():

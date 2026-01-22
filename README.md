@@ -1,222 +1,126 @@
-# AML Project 2: Federated Learning with DINO on CIFAR-100
+# Advanced Machine Learning Project 2: Federated Learning with DINO on CIFAR-100
 
-> **Advanced Machine Learning** - Federated Learning with Self-Supervised Vision Transformers
+## 1. Project Overview
 
-## Overview
+This project investigates the application of Federated Learning (FL) techniques using self-supervised Vision Transformer (ViT) features. Specifically, we utilize features extracted from a DINO ViT-S/16 model pre-trained on ImageNet. The primary objective is to evaluate the performance of the Federated Averaging (FedAvg) algorithm on the CIFAR-100 dataset under various conditions, including Independent and Identically Distributed (IID) and Non-IID data partitions.
 
-This project explores **Federated Learning** using pretrained **DINO ViT-S/16** features on **CIFAR-100**. We compare centralized baselines with FedAvg under IID and non-IID data distributions, and propose a sparse fine-tuning approach based on Fisher Information.
+Furthermore, this work explores communication-efficient training through sparse fine-tuning. We implement and analyze a method based on Task Arithmetic, employing Fisher Information matrices to construct gradient masks. This allows for updating only a subset of significant parameters, thereby reducing communication overhead. An extension of this work compares different parameter selection strategies for gradient masking in non-IID settings.
 
-### Key Components
-- **DINO ViT-S/16**: Self-supervised Vision Transformer (Facebook Research)
-- **CIFAR-100**: 100-class image classification (60,000 images)
-- **FedAvg**: Federated Averaging for distributed learning
-- **Sparse FedAvg**: Communication-efficient variant with Fisher-based masking
+## 2. Repository Structure
 
-## Project Structure
+The repository is organized as follows:
 
 ```
 AML-Project-2/
-├── notebooks/                      # Jupyter notebooks (Kaggle/Colab)
-│   ├── kaggle_runner1.ipynb       # Central baseline + FedAvg IID + Non-IID (scaled rounds)
-│   └── kaggle_runner2.ipynb       # Sparse FedAvg: ablations + all 5 mask rules
-├── src/                           # Source code
-│   ├── data.py                   # Data loading & partitioning (IID/non-IID)
-│   ├── model.py                  # DINO classifier models
-│   ├── utils.py                  # Utility functions
-│   ├── train.py                  # Training logic (local & centralized)
-│   ├── fedavg.py                 # FedAvg implementation
-│   ├── sparse_fedavg.py          # Sparse FedAvg with masking
-│   ├── optim.py                  # SparseSGDM optimizer
-│   └── masking.py                # Fisher Information & gradient sparsification
-├── output/                        # Experiment results
-│   ├── main/                     # Dense FedAvg results (baselines + non-IID)
-│   ├── extended/                 # Extended training results (300 rounds)
-│   ├── sparse/                   # Sparse FedAvg results (all mask rules)
-│   └── figures/                  # Generated plots
-├── report/                        # LaTeX report
-└── requirements.txt               # Python dependencies
+├── notebooks/                  # Jupyter notebooks for experimentation
+│   ├── kaggle_runner1.ipynb    # Baseline and standard FedAvg experiments
+│   └── kaggle_runner2.ipynb    # Sparse FedAvg and ablation studies
+├── src/                        # Source code modules
+│   ├── data.py                 # Dataset loading and partitioning logic
+│   ├── model.py                # Model architecture definitions
+│   ├── train.py                # Local and centralized training loops
+│   ├── fedavg.py               # Federated Averaging implementation
+│   ├── sparse_fedavg.py        # Sparse FedAvg implementation
+│   ├── optim.py                # Custom optimizer (SparseSGDM)
+│   ├── masking.py              # Gradient masking and Fisher information utilities
+│   └── utils.py                # General utility functions
+├── output/                     # Directory for experiment artifacts
+│   ├── main/                   # Results for dense baselines
+│   ├── sparse/                 # Results for sparse experiments
+│   └── figures/                # Generated visualization plots
+├── report/                     # LaTeX source for the final report
+└── requirements.txt            # Python dependency specification
 ```
 
----
+## 3. Methodology and Experiments
 
-## Running the Experiments
+The experimental campaign addresses the following key areas as defined in the project specifications:
+
+### 3.1. Centralized Baseline
+We establish a centralized baseline by training a linear classifier on top of frozen DINO features. The training process involves:
+- **Optimizer**: SGDM (Stochastic Gradient Descent with Momentum).
+- **Scheduler**: Cosine Annealing, selected after a comparative analysis of learning rate schedulers.
+- **Goal**: To determine the optimal hyperparameters and convergence behavior (epochs required) for the downstream task on CIFAR-100.
+
+### 3.2. Federated Averaging (FedAvg) Baseline
+We implement the FedAvg algorithm [McMahan et al., 2017] with the following configuration:
+- **Clients ($K$)**: 100
+- **Sampling Fraction ($C$)**: 0.1 (10 clients per round)
+- **Local Steps ($J$)**: 4
+- **Data Distribution**: IID sharding of CIFAR-100.
+
+### 3.3. Heterogeneity Analysis
+To simulate realistic federated settings, we evaluate performance under statistical heterogeneity (Non-IID data).
+- **Label Distribution**: We vary the number of classes per client ($N_c \in \{1, 5, 10, 50\}$).
+- **Local Computation**: We analyze the impact of local training steps ($J \in \{4, 8, 16\}$) on convergence and accuracy.
+- **Note**: The number of communication rounds is scaled inversely with $J$ to maintain a constant total computation budget across comparisons.
+
+### 3.4. Sparse Federated Learning (Task Arithmetic)
+We implement a communication-efficient variation of FedAvg using sparse updates.
+- **Method**: Computes the Fisher Information Matrix to estimate parameter sensitivity.
+- **Masking**: A binary mask is calibrated to freeze "least-sensitive" parameters, allowing only the most informative weights to be updated.
+- **Optimizer**: A custom `SparseSGDM` optimizer is implemented to respect the gradient masks during local training.
+- **Ablation Studies**: We analyze the effect of varying the sparsity ratio and the number of calibration rounds.
+
+### 3.5. Extension: Masking Rules Comparison
+We extend the sparse training methodology by comparing different criteria for parameter selection in Non-IID settings ($N_c=1$). The masking rules evaluated are:
+1.  **Least Sensitive**: Standard approach (lowest Fisher information).
+2.  **Most Sensitive**: Updating only parameters with the highest Fisher information.
+3.  **Lowest Magnitude**: Pruning based on weight magnitude (smallest absolute value).
+4.  **Highest Magnitude**: Pruning based on weight magnitude (largest absolute value).
+5.  **Random**: Random selection of parameters.
+
+## 4. Reproducing Results
+
+Experiments are designed to be run in a GPU-accelerated environment. The workflows are encapsulated in Jupyter notebooks for reproducibility.
 
 ### Prerequisites
+- Python 3.8 or higher
+- PyTorch $\ge$ 2.0
+- CUDA-enabled GPU (Recommended: NVIDIA T4 or better)
 
-1. **GPU Required**: All experiments require a GPU (Kaggle T4/P100, Colab T4, or local CUDA)
-2. **Python 3.8+** with PyTorch >= 2.0
-
-### Option 1: Kaggle (Recommended)
-
-1. Upload the repository to Kaggle or clone from GitHub
-2. Create a new notebook and attach GPU
-3. Run the appropriate runner notebook
-
-### Option 2: Google Colab
-
-```python
-# Clone repository
-!git clone https://github.com/emanueleR3/AML-Project-2.git
-%cd AML-Project-2
-!pip install -r requirements.txt
-```
-
----
-
-## Reproducing Experiments
-
-### Notebook 1: `kaggle_runner1.ipynb` (~6 hours)
-
-**Contains:**
-- Central Baseline (20 epochs)
-- FedAvg IID (100-300 rounds)
-- Non-IID Sweep with **Scaled Rounds**
-
-**Scaled Rounds Configuration:**
-When increasing local steps J, rounds are scaled inversely to keep total computation constant:
-
-| J | Rounds | Total Steps |
-|---|--------|-------------|
-| 4 | 100 | 400 |
-| 8 | 50 | 400 |
-| 16 | 25 | 400 |
-
-**Nc Values**: 1, 5, 10, 50 (classes per client)
-
-**Output:**
-- `output/main/central_baseline.pt` - Pretrained baseline
-- `output/main/fedavg_iid_metrics.json` - IID results
-- `output/main/noniid_nc{Nc}_j{J}.json` - Non-IID results
-
----
-
-### Notebook 2: `kaggle_runner2.ipynb` (~10.5 hours)
-
-**Phase 1: Ablation Studies (50 rounds each)**
-
-1. **Calibration Rounds Sweep**: 1, 3, 5, 10 rounds
-   - Multi-round Fisher Information calibration (Paper [15] Sec. 4.2)
-   
-2. **Sparsity Ratio Sweep**: 60%, 70%, 80%, 90%
-
-**Phase 2: Final Experiments (100 rounds each)**
-
-All 5 mask rules tested on Non-IID (Nc=1) data:
-
-| Mask Rule | Description |
-|-----------|-------------|
-| `least_sensitive` | Lowest Fisher Information scores |
-| `most_sensitive` | Highest Fisher Information scores |
-| `lowest_magnitude` | Smallest absolute weights |
-| `highest_magnitude` | Largest absolute weights |
-| `random` | Random parameter selection |
-
-Plus: IID + Least Sensitive baseline
-
-**Output:**
-- `output/sparse/ablation_calib{N}.json` - Calibration ablations
-- `output/sparse/ablation_sparsity{N}.json` - Sparsity ablations
-- `output/sparse/exp_iid_ls.json` - IID sparse results
-- `output/sparse/exp_noniid_{rule}.json` - Non-IID with each mask rule
-- `output/sparse/complete_summary.json` - Combined summary
-
----
-
-## Estimated Runtime
-
-| Experiment | GPU (T4) | GPU (P100) |
-|------------|----------|------------|
-| Central Baseline (20 epochs) | ~15 min | ~10 min |
-| FedAvg IID (300 rounds) | ~3 hours | ~2 hours |
-| Non-IID Sweep (12 configs, scaled) | ~3 hours | ~2 hours |
-| Sparse Ablations (8 configs × 50 rounds) | ~4 hours | ~3 hours |
-| Sparse Final (6 configs × 100 rounds) | ~6 hours | ~4 hours |
-
----
-
-## Analysis Script
-
-After running experiments, generate figures and tables:
-
-```bash
-cd output
-python final_analysis.py
-```
-
-**Generates:**
-- `figures/central_baseline_curves.pdf`
-- `figures/fedavg_iid_convergence.pdf`
-- `figures/noniid_heatmap.pdf`
-- `figures/sparse_fedavg_comparison.pdf`
-- `figures/ablation_studies.pdf`
-- `summary_results.csv`
-- `summary_table.tex`
-- `noniid_table.tex`
-
----
-
-## Key Parameters
-
-### FedAvg Configuration
-
-```python
-config = {
-    'num_clients': 100,        # K: Total clients
-    'clients_per_round': 0.1,  # C: Fraction sampled per round (10 clients)
-    'local_steps': 4,          # J: Local SGD steps
-    'num_rounds': 100,         # Communication rounds
-    'batch_size': 64,
-    'lr': 0.001,
-    'weight_decay': 1e-4,
-    'seed': 42,
-    'eval_freq': 10
-}
-```
-
-### Sparse FedAvg Configuration
-
-```python
-OPTIMAL_CALIB = 3      # Calibration rounds (from ablation)
-OPTIMAL_SPARSITY = 0.8 # 80% sparsity (20% params updated)
-
-MASK_RULES = [
-    'least_sensitive',
-    'most_sensitive',
-    'lowest_magnitude',
-    'highest_magnitude',
-    'random'
-]
-```
-
----
-
-## Dependencies
-
-```
-torch>=2.0.0
-torchvision>=0.15.0
-numpy
-matplotlib
-tqdm
-pandas
-seaborn
-```
-
-Install:
+To install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
----
+### Execution Steps
 
-## References
+#### Part 1: Baselines and Dense FedAvg
+1.  **Pre-training Head**: Run `notebooks/pretrain_head.ipynb`.
+    *   **Goal**: Train a linear classifier on the frozen DINO backbone (required initialization).
+    *   **Output**: `output/main/pretrained_head.pt`, `output/main/pretrained_head_metrics.json`
 
-- [DINO](https://arxiv.org/abs/2104.14294) - Self-Supervised Vision Transformers (Caron et al., 2021)
-- [FedAvg](https://arxiv.org/abs/1602.05629) - Communication-Efficient Learning (McMahan et al., 2017)
-- [CIFAR-100](https://www.cs.toronto.edu/~kriz/cifar.html) - Dataset (Krizhevsky, 2009)
+2.  **Central Baseline**: Run `notebooks/central_baseline.ipynb`.
+    *   **Goal**: Train the centralized baseline model (fine-tuning backbone).
+    *   **Output**: `output/main/central_baseline.pt`, `output/main/central_baseline_metrics.json`
 
----
+3.  **IID FedAvg**: Run `notebooks/fedavg_iid.ipynb`.
+    *   **Goal**: Run standard FedAvg on IID data.
+    *   **Output**: `output/main/fedavg_iid_best.pt`, `output/main/fedavg_iid_metrics.json`
 
-## License
+4.  **Non-IID Sweep**: Run `notebooks/scaled_noniid.ipynb`.
+    *   **Goal**: Run FedAvg on Non-IID data with varying $N_c$ and $J$ (scaled rounds).
+    *   **Output**: `output/scaled/noniid_nc{Nc}_j{J}.json`
 
-Educational project for the Advanced Machine Learning course at Politecnico di Torino.
+#### Part 2: Sparse Federated Learning and Extensions
+1.  **Ablation Studies**: Run `notebooks/sparse_ablation.ipynb`.
+    *   **Goal**: Determine optimal calibration rounds and sparsity ratio.
+    *   **Output**: `output/sparse_ablation/ablation_calib{N}.json`, `output/sparse_ablation/ablation_sparsity{N}.json`
+
+2.  **Sparse IID Comparison**: Run `notebooks/sparse_fedavg_iid.ipynb`.
+    *   **Goal**: Compare Sparse FedAvg vs Dense FedAvg on IID data.
+    *   **Output**: `output/comparison/sparse_iid_metrics.json`
+
+3.  **Masking Rules Comparison**: Run `notebooks/sparse_noniid_sweep.ipynb`.
+    *   **Goal**: Compare 5 masking rules (Least Sensitive, Most Sensitive, Lowest Magnitude, Highest Magnitude, Random) on Non-IID data.
+    *   **Output**: `output/sparse_noniid_{rule}/sparse_nc{nc}_j{j}_{rule}.json`
+
+### Analysis and Plotting
+To generate the tables and figures used in the report, run the analysis script after completing the experiments:
+```bash
+cd output
+python final_analysis.py
+python generate_results.py
+```
+This will produce PDF plots in `output/figures/` and LaTeX tables for the report.

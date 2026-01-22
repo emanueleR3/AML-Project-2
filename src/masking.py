@@ -80,29 +80,9 @@ def create_mask(
     rule: MaskRule = 'least_sensitive',
     seed: int = 42
 ) -> Dict[str, torch.Tensor]:
-    """
-    Create a binary mask for sparse training.
-    
-    Args:
-        scores: Fisher/sensitivity scores per parameter
-        model: The model to create mask for
-        sparsity_ratio: Fraction of weights to PRUNE (set to 0). 
-                        E.g., 0.8 means 80% pruned, 20% kept.
-        rule: Which parameters to KEEP (mask=1)
-            - 'least_sensitive': Keep params with LOW Fisher (safe to update)
-            - 'most_sensitive': Keep params with HIGH Fisher (important)
-            - 'lowest_magnitude': Keep params with LOW weight magnitude
-            - 'highest_magnitude': Keep params with HIGH weight magnitude
-            - 'random': Random selection
-        seed: Random seed for reproducibility
-    
-    Returns:
-        mask: Dict of binary tensors (1=keep, 0=prune)
-    """
     torch.manual_seed(seed)
     mask = {}
     
-    # How many weights to KEEP (not prune)
     keep_ratio = 1.0 - sparsity_ratio
 
     # Random case
@@ -134,38 +114,26 @@ def create_mask(
     keep_largest = rule in ['most_sensitive', 'highest_magnitude']
     threshold = torch.topk(all_values, k, largest=keep_largest).values[-1]
 
-    # Build mask: 1 = keep, 0 = prune
     for name, p in model.named_parameters():
         if not p.requires_grad:
             continue
 
         if rule == 'least_sensitive':
-            # Keep weights with LOW Fisher (they're safe to keep updating)
             mask[name] = (scores[name] <= threshold).float()
 
         elif rule == 'most_sensitive':
-            # Keep weights with HIGH Fisher (they're important)
             mask[name] = (scores[name] >= threshold).float()
 
         elif rule == 'lowest_magnitude':
-            # Keep weights with LOW magnitude
             mask[name] = (p.abs() <= threshold).float()
 
         elif rule == 'highest_magnitude':
-            # Keep weights with HIGH magnitude
             mask[name] = (p.abs() >= threshold).float()
 
     return mask
 
 
 def get_mask_sparsity(mask: Dict[str, torch.Tensor]) -> float:
-    """
-    Calculate the sparsity of a mask (fraction of weights that are PRUNED/zero).
-    
-    Returns:
-        sparsity: Fraction of weights with mask=0 (pruned)
-                  E.g., 0.8 means 80% are pruned, 20% are active
-    """
     total = 0
     active = 0
 
@@ -173,8 +141,7 @@ def get_mask_sparsity(mask: Dict[str, torch.Tensor]) -> float:
         total += m.numel()
         active += m.sum().item()
 
-    return 1.0 - (active / total)  # Return sparsity (pruned ratio), not active ratio
-
+    return 1.0 - (active / total)  
 
 def save_mask(mask: Dict[str, torch.Tensor], path: str):
     torch.save(mask, path)

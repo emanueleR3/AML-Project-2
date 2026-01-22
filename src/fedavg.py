@@ -27,7 +27,6 @@ def client_update(
     local_model.to(device)
     local_model.train()
     
-    # Register hooks if mask is provided
     handles = []
     if mask is not None:
         def get_mask_hook(mask_tensor):
@@ -54,7 +53,6 @@ def client_update(
         local_model, train_loader, optimizer, criterion, device, local_steps
     )
     
-    # Remove hooks (good practice, though model is discarded)
     for h in handles: h.remove()
     
     return local_model.state_dict(), avg_loss, avg_acc, n_samples
