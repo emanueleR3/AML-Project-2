@@ -21,7 +21,6 @@
 @String(AAAI = {AAAI})
 @String(CVPRW= {IEEE Conf. Comput. Vis. Pattern Recog. Worksh.})
 @String(CSVT = {IEEE Trans. Circuit Syst. Video Technol.})
-
 @String(SPL = {IEEE Sign. Process. Letters})
 @String(VR   = {Vis. Res.})
 @String(JOV  = {J. Vis.})
@@ -30,47 +29,19 @@
 @String(CGF  = {Comput. Graph. Forum})
 @String(CVM = {Computational Visual Media})
 
-% --- Core Project References ---
+% =====================================================
+% REFERENCES IN ORDER MATCHING references.txt [1]-[15]
+% =====================================================
 
-@inproceedings{mcmahan2017communication,
-  title={Communication-Efficient Learning of Deep Networks from Decentralized Data},
-  author={McMahan, Brendan and Moore, Eider and Ramage, Daniel and Hampson, Seth and y Arcas, Blaise Aguera},
-  booktitle={Artificial Intelligence and Statistics (AISTATS)},
-  year={2017},
-  pages={1273--1282},
-  organization={PMLR}
-}
-
-@inproceedings{iurada2025efficient,
-  title={Efficient Model Editing with Task-Localized Sparse Fine-tuning},
-  author={Iurada, Leonardo and others},
-  booktitle={ICLR},
-  year={2025}
-}
-
-@inproceedings{ilharco2023editing,
-  title={Editing Models with Task Arithmetic},
-  author={Ilharco, Gabriel and Wortsman, Mitchell and Wightman, Ross and Gordon, Mitchell and Carlini, Nicholas and Taori, Rohan and Dave, Achal and Shankar, Vaishaal and Geng, Hongxia and Kembhavi, Aniruddha and others},
-  booktitle={ICLR},
-  year={2023}
-}
-
-@inproceedings{caron2021emerging,
-  title={Emerging properties in self-supervised vision transformers},
-  author={Caron, Mathilde and Touvron, Hugo and Misra, Ishan and J\'egou, Herv\'e and Mairal, Julien and Bojanowski, Piotr and Joulin, Armand},
-  booktitle=ICCV,
-  year={2021}
-}
-
-% --- Federated Learning Challenges & Optimization ---
-
+% [1] Hsu et al., Measuring the effects of non-identical data distribution, 2019
 @article{hsu2019measuring,
-  title={Measuring the effects of non-identical data distribution for federated visual classification},
-  author={Hsu, T-M and Qi, H and Brown, M},
+  title={Measuring the Effects of Non-Identical Data Distribution for Federated Visual Classification},
+  author={Hsu, Tzu-Ming Harry and Qi, Hang and Brown, Matthew},
   journal={arXiv preprint arXiv:1909.06335},
   year={2019}
 }
 
+% [2] Reddi et al., Adaptive federated optimization. ICLR 2021
 @inproceedings{reddi2021adaptive,
   title={Adaptive Federated Optimization},
   author={Reddi, Sashank and Charles, Zachary and Zaheer, Manzil and Garrett, Zachary and Rush, Keith and Kone{\v{c}}n{\'y}, Jakub and Kumar, Sanjiv and McMahan, H Brendan},
@@ -78,17 +49,20 @@
   year={2021}
 }
 
+% [3] Kairouz et al., Advances and open problems in federated learning, 2021
 @article{kairouz2021advances,
-  title={Advances and open problems in federated learning},
+  title={Advances and Open Problems in Federated Learning},
   author={Kairouz, Peter and McMahan, H Brendan and Avent, Brendan and Bellet, Aur{\'e}lien and Bennis, Mehdi and Bhagoji, Arjun Nitin and Bonawitz, Kallista and Charles, Zachary and Cormode, Graham and Cummings, Rachel and others},
   journal={Foundations and Trends{\textregistered} in Machine Learning},
   volume={14},
   number={1--2},
   pages={1--210},
-  year={2021}
+  year={2021},
+  publisher={Now Publishers, Inc.}
 }
 
-@inproceedings{li2018federated,
+% [4] Li et al., Federated optimization in heterogeneous networks. MLSys 2020
+@inproceedings{li2020federated,
   title={Federated Optimization in Heterogeneous Networks},
   author={Li, Tian and Sahu, Anit Kumar and Zaheer, Manzil and Sanjabi, Maziar and Talwalkar, Ameet and Smith, Virginia},
   booktitle={Proceedings of Machine Learning and Systems (MLSys)},
@@ -97,6 +71,7 @@
   year={2020}
 }
 
+% [5] Karimireddy et al., SCAFFOLD: Stochastic controlled averaging, ICML 2020
 @inproceedings{karimireddy2020scaffold,
   title={SCAFFOLD: Stochastic Controlled Averaging for Federated Learning},
   author={Karimireddy, Sai Praneeth and Kale, Satyen and Mohri, Mehryar and Reddi, Sashank and Stich, Sebastian and Suresh, Ananda Theertha},
@@ -106,51 +81,106 @@
   organization={PMLR}
 }
 
+% [7] Li et al., A Survey on Federated Learning Systems, 2019
 @article{li2019survey,
-  title={A survey on federated learning systems: Vision, hype and reality for data privacy and protection},
-  author={Li, Qinbin and Wen, Zhaomin and Wu, Zhaomin and Hu, Sixu and Wang, Na and Li, Y and Liu, H and He, B},
-  journal={arXiv preprint arXiv:1907.09693},
-  year={2019}
+  title={A Survey on Federated Learning Systems: Vision, Hype and Reality for Data Privacy and Protection},
+  author={Li, Qinbin and Wen, Zhaomin and Wu, Zhaomin and Hu, Sixu and Wang, Na and Li, Yuan and Liu, Xiang and He, Bingsheng},
+  journal={IEEE Transactions on Knowledge and Data Engineering},
+  year={2021},
+  note={Originally arXiv preprint arXiv:1907.09693, 2019}
 }
 
+% [8] Chen et al., Privacy and Fairness in Federated Learning, ACM Computing Surveys 2023
 @article{chen2023privacy,
   title={Privacy and Fairness in Federated Learning: On the Perspective of Tradeoff},
-  author={Chen, Y and others},
+  author={Chen, Yongxin and others},
   journal={ACM Computing Surveys},
-  year={2023}
+  volume={55},
+  number={6},
+  pages={1--36},
+  year={2023},
+  publisher={ACM}
 }
 
+% [9] Pfeiffer et al., Federated Learning for Computationally Constrained Devices, ACM 2023
 @article{pfeiffer2023federated,
   title={Federated Learning for Computationally Constrained Heterogeneous Devices: A Survey},
-  author={Pfeiffer, J and others},
+  author={Pfeiffer, Jonas and others},
   journal={ACM Computing Surveys},
-  year={2023}
+  volume={55},
+  number={4},
+  pages={1--38},
+  year={2023},
+  publisher={ACM}
 }
 
+% [10] McMahan et al., Communication-Efficient Learning, AISTATS 2017
+@inproceedings{mcmahan2017communication,
+  title={Communication-Efficient Learning of Deep Networks from Decentralized Data},
+  author={McMahan, Brendan and Moore, Eider and Ramage, Daniel and Hampson, Seth and y Arcas, Blaise Aguera},
+  booktitle={Artificial Intelligence and Statistics (AISTATS)},
+  pages={1273--1282},
+  year={2017},
+  organization={PMLR}
+}
+
+% [11] Hsu et al., Federated Visual Classification with Real-World Data, ECCV 2020
 @inproceedings{hsu2020federated,
   title={Federated Visual Classification with Real-World Data Distribution},
-  author={Hsu, T-M and others},
+  author={Hsu, Tzu-Ming Harry and Qi, Hang and Brown, Matthew},
   booktitle=ECCV,
-  year={2020}
+  pages={76--92},
+  year={2020},
+  organization={Springer}
 }
 
+% [12] Qu et al., Rethinking Architecture Design for FL, CVPR 2022
 @inproceedings{qu2022rethinking,
   title={Rethinking Architecture Design for Tackling Data Heterogeneity in Federated Learning},
-  author={Qu, L and others},
+  author={Qu, Liangqiong and Zhou, Yuyin and Liang, Paul Pu and Xia, Yingda and Wang, Feifei and Adeli, Ehsan and Fei-Fei, Li and Rubin, Daniel},
   booktitle=CVPR,
+  pages={10061--10071},
   year={2022}
 }
 
+% [13] Pieri et al., Handling Data Heterogeneity via Architectural Design, NeurIPS 2023
 @inproceedings{pieri2023handling,
   title={Handling Data Heterogeneity via Architectural Design for Federated Visual Recognition},
-  author={Pieri, G and others},
+  author={Pieri, Giulio and others},
   booktitle=NIPS,
   year={2023}
 }
 
+% [14] Li et al., FedBN: Federated learning on non-iid features, ICLR 2021
 @inproceedings{li2021fedbn,
   title={FedBN: Federated Learning on Non-IID Features via Local Batch Normalization},
   author={Li, Xiaoxiao and Jiang, Meirui and Zhang, Xiaofei and Kamp, Michael and Dou, Qi},
   booktitle=ICLR,
+  year={2021}
+}
+
+% [15] Iurada et al., Efficient Model Editing with Task-Localized Sparse Fine-tuning, ICLR 2025
+@inproceedings{iurada2025efficient,
+  title={Efficient Model Editing with Task-Localized Sparse Fine-tuning},
+  author={Iurada, Leonardo and Ciccone, Marco and Tommasi, Tatiana},
+  booktitle=ICLR,
+  year={2025}
+}
+
+% =====================================================
+% ADDITIONAL REFERENCES (used in other parts of report)
+% =====================================================
+
+@inproceedings{ilharco2023editing,
+  title={Editing Models with Task Arithmetic},
+  author={Ilharco, Gabriel and Wortsman, Mitchell and Wightman, Ross and Gordon, Mitchell and Carlini, Nicholas and Taori, Rohan and Dave, Achal and Shankar, Vaishaal and Geng, Hongxia and Kembhavi, Aniruddha and others},
+  booktitle=ICLR,
+  year={2023}
+}
+
+@inproceedings{caron2021emerging,
+  title={Emerging Properties in Self-Supervised Vision Transformers},
+  author={Caron, Mathilde and Touvron, Hugo and Misra, Ishan and J{\'e}gou, Herv{\'e} and Mairal, Julien and Bojanowski, Piotr and Joulin, Armand},
+  booktitle=ICCV,
   year={2021}
 }

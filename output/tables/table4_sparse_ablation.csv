@@ -1,0 +1,8 @@
+Type,Value,Best Accuracy (%)
+Calibration Rounds,1,77.87
+Calibration Rounds,3,77.91
+Calibration Rounds,5,77.91
+Calibration Rounds,10,77.9
+Sparsity (%),20,80.1
+Sparsity (%),50,77.92
+Sparsity (%),90,73.81

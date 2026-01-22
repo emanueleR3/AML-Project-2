@@ -1,0 +1,10 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+In this work, we explored the intersection of Federated Learning and Task Arithmetic, investigating whether techniques designed for model merging can mitigate the adverse effects of statistical heterogeneity in FL. Leveraging a pre-trained DINO ViT backbone, we introduced a sparse fine-tuning strategy that constrains client updates to a subspace of parameters identified via Fisher Information.
+
+Our experiments demonstrate that statistical heterogeneity significantly degrades the performance of standard FedAvg. However, by adopting our \textbf{Sparse Federated Averaging} with a \textbf{Least-Sensitive} masking strategy, we were able to recover a substantial portion of the accuracy lost due to client drift. Specifically, in extreme non-IID scenarios ($N_c=1$), our method improved performance by over 16 percentage points compared to dense FedAvg.
+
+Furthermore, our extension study on masking rules highlighted that parameter selection is a critical factor. Fisher-based sensitivity proved to be a superior metric for identifying "safe" parameters compared to weight magnitude or random selection. The performance gap between intelligent and random masking confirms that successful federated fine-tuning relies on managing the interference between new task adaptation and the preservation of pre-trained knowledge.
+
+Future work could explore dynamic sparsity ratios that adapt over communication rounds, or personalized masking strategies where each client computes a unique mask based on local data distributions. Additionally, applying these techniques to larger-scale foundation models and diverse modalities remains a promising avenue for research.

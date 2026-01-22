@@ -1,24 +1,3 @@
-#!/usr/bin/env python3
-"""
-Federated Learning Experiment Analysis Script
-=============================================
-This script analyzes FL experiment results and generates publication-ready
-figures and tables for the final report.
-
-Uses outputs from:
-- output/main/          -> Central baseline, FedAvg IID
-- output/scaled/        -> Non-IID experiments with scaled rounds
-- output/output:sparse/ -> Sparse FedAvg ablations and final experiments
-
-Generates:
-- Central baseline training curves
-- FedAvg IID convergence
-- Non-IID heatmap (scaled rounds)
-- Sparse FedAvg ablation studies
-- Mask rule comparison
-- Summary tables (CSV + LaTeX)
-"""
-
 import json
 import os
 from pathlib import Path
@@ -30,9 +9,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-# ============================================================================
-# Configuration
-# ============================================================================
 plt.rcParams.update({
     'font.size': 11,
     'axes.titlesize': 12,
@@ -48,7 +24,6 @@ plt.rcParams.update({
     'grid.alpha': 0.3,
 })
 
-# Color palette
 COLORS = {
     'central': '#2ecc71',
     'fedavg_iid': '#3498db',
@@ -58,20 +33,18 @@ COLORS = {
     'ablation': '#f39c12',
 }
 
-# Paths - UPDATED TO USE NEW DIRECTORIES
 SCRIPT_DIR = Path(__file__).parent
 MAIN_DIR = SCRIPT_DIR / "main"
-SCALED_DIR = SCRIPT_DIR / "scaled"          # Non-IID with scaled rounds
-SPARSE_DIR = SCRIPT_DIR / "output:sparse"   # Sparse FedAvg experiments
-SCHEDULER_DIR = SCRIPT_DIR / "scheduler-sweep"  # Scheduler comparison
+SCALED_DIR = SCRIPT_DIR / "scaled"          
+SPARSE_DIR = SCRIPT_DIR / "sparse_ablation"   
+SPARSE_IID_DIR = SCRIPT_DIR / "sparse_iid"    
+SPARSE_NONIID_DIR = SCRIPT_DIR / "sparse_noniid"  
+SCHEDULER_DIR = SCRIPT_DIR / "scheduler-sweep"  
 FIGURES_DIR = SCRIPT_DIR / "figures"
 
 FIGURES_DIR.mkdir(exist_ok=True)
 
 
-# ============================================================================
-# Data Loading Functions
-# ============================================================================
 def load_json(filepath: Path) -> dict:
     """Load JSON file."""
     with open(filepath, 'r') as f:
@@ -99,12 +72,12 @@ def load_scaled_noniid_experiments(directory: Path) -> Dict[Tuple[int, int], dic
     if not directory.exists():
         return results
     
-    for filepath in directory.glob("noniid_scaled_nc*.json"):
-        filename = filepath.stem  # noniid_scaled_nc{nc}_j{j}
+    for filepath in directory.glob("noniid_nc*.json"):
+        filename = filepath.stem  # noniid_nc{nc}_j{j}
         try:
             parts = filename.split('_')
-            nc = int(parts[2].replace('nc', ''))
-            j = int(parts[3].replace('j', ''))
+            nc = int(parts[1].replace('nc', ''))
+            j = int(parts[2].replace('j', ''))
             results[(nc, j)] = load_json(filepath)
         except (IndexError, ValueError) as e:
             print(f"  Warning: Could not parse {filename}: {e}")
@@ -112,19 +85,20 @@ def load_scaled_noniid_experiments(directory: Path) -> Dict[Tuple[int, int], dic
     return results
 
 
-def load_sparse_experiments(directory: Path) -> Dict[str, dict]:
-    """
-    Load sparse FedAvg experiments from output/output:sparse/.
-    """
+def load_sparse_experiments(directory: Path, iid_directory: Path = None) -> Dict[str, dict]:
     results = {}
     if not directory.exists():
         return results
     
-    # Load final experiments (final_*.json)
     for filepath in directory.glob("final_*.json"):
-        name = filepath.stem  # e.g., final_iid_ls, final_noniid_ls
+        name = filepath.stem
         results[name] = load_json(filepath)
     
+    if iid_directory and iid_directory.exists():
+        metrics_file = iid_directory / "sparse_iid_metrics.json"
+        if metrics_file.exists():
+            results["sparse_iid_metrics"] = load_json(metrics_file)
+
     return results
 
 
@@ -139,17 +113,14 @@ def load_ablation_results(directory: Path) -> Dict[str, dict]:
     if not directory.exists():
         return results
     
-    # Load calibration ablations
     for filepath in directory.glob("ablation_calib*.json"):
         num = int(filepath.stem.replace('ablation_calib', ''))
         results['calibration'][num] = load_json(filepath)
     
-    # Load sparsity ablations
     for filepath in directory.glob("ablation_sparsity*.json"):
         pct = int(filepath.stem.replace('ablation_sparsity', ''))
         results['sparsity'][pct] = load_json(filepath)
     
-    # Load complete summary
     summary_path = directory / "complete_summary.json"
     if summary_path.exists():
         results['summary'] = load_json(summary_path)
@@ -177,57 +148,55 @@ def extract_final_test_acc(metrics: dict) -> Optional[float]:
             return accs[-1]
     return None
 
-
-# ============================================================================
-# Visualization Functions
-# ============================================================================
 def plot_central_baseline(data: dict):
-    """Plot central baseline training curves."""
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-    
-    # Training Loss
-    ax1 = axes[0]
+    # Plot 1: Training Loss
+    plt.figure(figsize=(6, 4.5))
     epochs = range(1, len(data['train_loss']) + 1)
-    ax1.plot(epochs, data['train_loss'], color=COLORS['central'], linewidth=2, marker='o', markersize=4)
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Training Loss')
-    ax1.set_title('Central Baseline - Training Loss')
-    
-    # Validation Accuracy
-    ax2 = axes[1]
-    n_val = len(data['val_acc'])
-    val_epochs = np.linspace(1, len(data['train_loss']), n_val).astype(int)
-    ax2.plot(val_epochs, data['val_acc'], color=COLORS['central'], linewidth=2, marker='o', markersize=6)
-    ax2.set_xlabel('Epoch')
-    ax2.set_ylabel('Validation Accuracy (%)')
-    ax2.set_title('Central Baseline - Validation Accuracy')
-    
-    best_acc = max(data['val_acc'])
-    ax2.axhline(y=best_acc, color=COLORS['central'], linestyle='--', alpha=0.5)
-    ax2.annotate(f'Best: {best_acc:.2f}%', xy=(val_epochs[-1], best_acc), 
-                 xytext=(-50, 5), textcoords='offset points', fontsize=10)
+    plt.plot(epochs, data['train_loss'], color=COLORS['central'], linewidth=2, marker='o', markersize=4)
+    plt.xlabel('Epoch')
+    plt.ylabel('Training Loss')
+    plt.title('Central Baseline - Training Loss')
+    plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(FIGURES_DIR / 'central_baseline_curves.png')
-    plt.savefig(FIGURES_DIR / 'central_baseline_curves.pdf')
+    plt.savefig(FIGURES_DIR / 'central_baseline_loss.png')
+    plt.savefig(FIGURES_DIR / 'central_baseline_loss.pdf')
     plt.close()
-    print("✓ Saved: central_baseline_curves.png/pdf")
+    
+    # Plot 2: Validation Accuracy
+    plt.figure(figsize=(6, 4.5))
+    n_val = len(data['val_acc'])
+    val_epochs = np.linspace(1, len(data['train_loss']), n_val).astype(int)
+    plt.plot(val_epochs, data['val_acc'], color=COLORS['central'], linewidth=2, marker='o', markersize=6)
+    plt.xlabel('Epoch')
+    plt.ylabel('Validation Accuracy (%)')
+    plt.title('Central Baseline - Validation Accuracy')
+    
+    best_acc = max(data['val_acc'])
+    plt.axhline(y=best_acc, color=COLORS['central'], linestyle='--', alpha=0.5)
+    plt.annotate(f'Best: {best_acc:.2f}%', xy=(val_epochs[-1], best_acc), 
+                 xytext=(-50, 5), textcoords='offset points', fontsize=10)
+    plt.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(FIGURES_DIR / 'central_baseline_accuracy.png')
+    plt.savefig(FIGURES_DIR / 'central_baseline_accuracy.pdf')
+    plt.close()
+    
+    print("✓ Saved: central_baseline_loss.png/pdf and central_baseline_accuracy.png/pdf")
 
 
 def plot_fedavg_iid(data: dict):
-    """Plot FedAvg IID convergence."""
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
     
     rounds = data['round']
     
-    # Training Loss
     ax1 = axes[0]
     ax1.plot(rounds, data['train_loss'], color=COLORS['fedavg_iid'], linewidth=2)
     ax1.set_xlabel('Communication Round')
     ax1.set_ylabel('Training Loss')
     ax1.set_title('FedAvg IID - Training Loss')
     
-    # Test Accuracy
     ax2 = axes[1]
     acc_key = 'test_acc' if 'test_acc' in data else 'val_acc'
     acc = np.array(data[acc_key])
@@ -251,7 +220,6 @@ def plot_fedavg_iid(data: dict):
 
 
 def plot_noniid_scaled_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
-    """Create heatmap of Non-IID results with scaled rounds (Nc × J)."""
     if not noniid_results:
         print("⚠ No scaled non-IID results found, skipping heatmap")
         return None
@@ -270,7 +238,6 @@ def plot_noniid_scaled_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
     
     fig, ax = plt.subplots(figsize=(7, 5))
     
-    # Calculate scaled rounds for labels
     j_labels = [f'J={j}\n(R={400//j})' for j in js]
     
     sns.heatmap(final_acc_matrix, annot=True, fmt='.1f', cmap='RdYlGn',
@@ -287,7 +254,6 @@ def plot_noniid_scaled_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
     plt.close()
     print("✓ Saved: noniid_scaled_heatmap.png/pdf")
     
-    # Create table
     rows = []
     for nc in ncs:
         for j in js:
@@ -303,7 +269,6 @@ def plot_noniid_scaled_heatmap(noniid_results: Dict[Tuple[int, int], dict]):
 
 
 def plot_ablation_studies(ablation_results: Dict[str, dict]):
-    """Plot ablation study results (calibration rounds + sparsity ratio)."""
     has_calib = bool(ablation_results.get('calibration'))
     has_sparsity = bool(ablation_results.get('sparsity'))
     summary = ablation_results.get('summary')
@@ -312,7 +277,6 @@ def plot_ablation_studies(ablation_results: Dict[str, dict]):
         print("⚠ No ablation results found, skipping")
         return
     
-    # If we have summary, use those values directly
     if summary:
         calib_data = summary.get('ablation_calibration', {})
         sparsity_data = summary.get('ablation_sparsity', {})
@@ -336,7 +300,6 @@ def plot_ablation_studies(ablation_results: Dict[str, dict]):
     
     plot_idx = 0
     
-    # Calibration rounds
     if calib_data:
         ax = axes[plot_idx]
         rounds = sorted([int(k) for k in calib_data.keys()])
@@ -356,7 +319,6 @@ def plot_ablation_studies(ablation_results: Dict[str, dict]):
         
         plot_idx += 1
     
-    # Sparsity ratio
     if sparsity_data:
         ax = axes[plot_idx]
         ratios = sorted([float(k) for k in sparsity_data.keys()])
@@ -380,27 +342,26 @@ def plot_ablation_studies(ablation_results: Dict[str, dict]):
 
 
 def plot_sparse_comparison(sparse_results: Dict[str, dict], fedavg_iid: dict = None):
-    """Plot sparse FedAvg comparison."""
     if not sparse_results:
         print("⚠ No sparse results found, skipping comparison")
         return
     
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     
-    # Labels mapping
     labels = {
         'final_iid_ls': 'IID + Least Sensitive',
         'final_noniid_ls': 'Non-IID + Least Sensitive',
         'final_noniid_random': 'Non-IID + Random',
+        'sparse_iid_metrics': 'Sparse IID (50% Sparsity)',
     }
     
     colors = {
         'final_iid_ls': COLORS['sparse_ls'],
         'final_noniid_ls': COLORS['noniid'],
         'final_noniid_random': COLORS['sparse_rnd'],
+        'sparse_iid_metrics': COLORS['sparse_ls'],
     }
     
-    # Plot 1: Convergence curves
     ax1 = axes[0]
     
     if fedavg_iid:
@@ -413,6 +374,8 @@ def plot_sparse_comparison(sparse_results: Dict[str, dict], fedavg_iid: dict = N
                      linewidth=2, linestyle='--', label='Dense FedAvg IID', alpha=0.8)
     
     for name, data in sparse_results.items():
+        if name == 'sparse_iid_metrics':
+             continue
         if 'round' in data and 'test_acc' in data:
             label = labels.get(name, name)
             color = colors.get(name, 'gray')
@@ -423,7 +386,6 @@ def plot_sparse_comparison(sparse_results: Dict[str, dict], fedavg_iid: dict = N
     ax1.set_title('Sparse FedAvg - Convergence')
     ax1.legend(loc='lower right', fontsize=9)
     
-    # Plot 2: Bar chart
     ax2 = axes[1]
     
     names = list(sparse_results.keys())
@@ -442,7 +404,6 @@ def plot_sparse_comparison(sparse_results: Dict[str, dict], fedavg_iid: dict = N
         ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
                  f'{acc:.1f}', ha='center', fontsize=10, fontweight='bold')
     
-    # Add dense baseline
     if fedavg_iid:
         dense_acc = extract_final_test_acc(fedavg_iid)
         if dense_acc:
@@ -451,20 +412,114 @@ def plot_sparse_comparison(sparse_results: Dict[str, dict], fedavg_iid: dict = N
             ax2.legend()
     
     plt.tight_layout()
-    plt.savefig(FIGURES_DIR / 'sparse_fedavg_comparison.png')
-    plt.savefig(FIGURES_DIR / 'sparse_fedavg_comparison.pdf')
+    # plt.savefig(FIGURES_DIR / 'sparse_fedavg_comparison.png')
+    # plt.savefig(FIGURES_DIR / 'sparse_fedavg_comparison.pdf')
     plt.close()
-    print("✓ Saved: sparse_fedavg_comparison.png/pdf")
+    # print("✓ Saved: sparse_fedavg_comparison.png/pdf")
 
 
-# ============================================================================
-# Summary Generation
-# ============================================================================
+def load_sparse_noniid_results(directory: Path) -> Dict[str, dict]:
+    results = {}
+    if not directory.exists():
+        return results
+    
+    for filepath in directory.glob("sparse_nc*.json"):
+        name = filepath.stem
+        results[name] = load_json(filepath)
+    
+    return results
+
+
+def plot_masking_rule_comparison(sparse_noniid_results: Dict[str, dict], noniid_results: Dict):
+    if not sparse_noniid_results:
+        print("⚠ No sparse non-IID results found, skipping masking comparison")
+        return
+    
+    configs = {}
+    for name, data in sparse_noniid_results.items():
+        parts = name.replace('sparse_', '').split('_')
+        try:
+            nc = int(parts[0].replace('nc', ''))
+            j = int(parts[1].replace('j', ''))
+            rule = '_'.join(parts[2:])
+            
+            key = (nc, j)
+            if key not in configs:
+                configs[key] = {}
+            
+            final_acc = extract_final_test_acc(data)
+            if final_acc:
+                configs[key][rule] = final_acc
+        except (IndexError, ValueError):
+            print(f"  Warning: Could not parse {name}")
+            continue
+    
+    if not configs:
+        print("⚠ No valid sparse non-IID results parsed")
+        return
+    
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    config_labels = [f'Nc={nc}, J={j}' for (nc, j) in sorted(configs.keys())]
+    all_rules = set()
+    for rule_accs in configs.values():
+        all_rules.update(rule_accs.keys())
+    all_rules = sorted(all_rules)
+    
+    rule_colors = {
+        'least_sensitive': '#3498db',
+        'most_sensitive': '#e74c3c',
+        'lowest_magnitude': '#2ecc71',
+        'highest_magnitude': '#9b59b6',
+        'random': '#95a5a6'
+    }
+    
+    x = np.arange(len(config_labels))
+    width = 0.15
+    n_rules = len(all_rules)
+    
+    for i, rule in enumerate(all_rules):
+        offsets = x + (i - n_rules/2 + 0.5) * width
+        accs = []
+        for key in sorted(configs.keys()):
+            accs.append(configs[key].get(rule, 0))
+        
+        color = rule_colors.get(rule, 'gray')
+        label = rule.replace('_', ' ').title()
+        bars = ax.bar(offsets, accs, width, label=label, color=color)
+        
+        for bar, acc in zip(bars, accs):
+            if acc > 0:
+                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
+                       f'{acc:.1f}', ha='center', fontsize=8, rotation=45)
+    
+    for idx, (nc, j) in enumerate(sorted(configs.keys())):
+        if (nc, j) in noniid_results:
+            dense_acc = extract_final_test_acc(noniid_results[(nc, j)])
+            if dense_acc:
+                ax.hlines(dense_acc, idx - 0.4, idx + 0.4, colors='black', 
+                         linestyles='--', linewidth=2, alpha=0.7)
+                ax.text(idx + 0.45, dense_acc, f'Dense: {dense_acc:.1f}%', 
+                       fontsize=8, va='center')
+    
+    ax.set_xlabel('Configuration')
+    ax.set_ylabel('Test Accuracy (%)')
+    ax.set_title('Sparse Non-IID: Masking Rule Comparison')
+    ax.set_xticks(x)
+    ax.set_xticklabels(config_labels)
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize=9)
+    ax.grid(axis='y', alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(FIGURES_DIR / 'masking_rule_comparison.png')
+    plt.savefig(FIGURES_DIR / 'masking_rule_comparison.pdf')
+    plt.close()
+    print("✓ Saved: masking_rule_comparison.png/pdf")
+
+
 def generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablation) -> pd.DataFrame:
-    """Generate comprehensive summary."""
     rows = []
     
-    # Central Baseline
     if central:
         best_val = max(central['val_acc'])
         rows.append({
@@ -474,7 +529,6 @@ def generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablati
             'Category': 'Baseline'
         })
     
-    # FedAvg IID
     if fedavg_iid:
         final_acc = extract_final_test_acc(fedavg_iid)
         rows.append({
@@ -484,7 +538,6 @@ def generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablati
             'Category': 'Dense FL'
         })
     
-    # Scaled Non-IID
     for (nc, j), data in sorted(noniid_results.items()):
         final_acc = extract_final_test_acc(data)
         if final_acc:
@@ -495,7 +548,6 @@ def generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablati
                 'Category': 'Non-IID (Scaled)'
             })
     
-    # Sparse experiments
     for name, data in sparse_results.items():
         final_acc = extract_final_test_acc(data)
         if final_acc:
@@ -503,7 +555,7 @@ def generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablati
             rows.append({
                 'Experiment': f'Sparse {label}',
                 'Final Acc (%)': round(final_acc, 2),
-                'Best Acc (%)': round(max(data.get('test_acc', [final_acc])), 2),
+                'Best Acc (%)': round(max([x for x in data.get('test_acc', [final_acc]) if x is not None]), 2),
                 'Category': 'Sparse FL'
             })
     
@@ -511,7 +563,6 @@ def generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablati
 
 
 def generate_latex_tables(summary_df: pd.DataFrame, noniid_df: Optional[pd.DataFrame]):
-    """Generate LaTeX tables."""
     summary_df.to_csv(SCRIPT_DIR / 'summary_results.csv', index=False)
     print("✓ Saved: summary_results.csv")
     
@@ -535,9 +586,6 @@ def generate_latex_tables(summary_df: pd.DataFrame, noniid_df: Optional[pd.DataF
         print("✓ Saved: noniid_scaled_table.tex")
 
 
-# ============================================================================
-# Main
-# ============================================================================
 def main():
     print("=" * 60)
     print("Federated Learning Experiment Analysis")
@@ -545,13 +593,12 @@ def main():
     print("=" * 60)
     print()
     
-    # Load data
     print("Loading data...")
     
     central = load_central_baseline(MAIN_DIR)
     fedavg_iid = load_fedavg_iid(MAIN_DIR)
     noniid_results = load_scaled_noniid_experiments(SCALED_DIR)
-    sparse_results = load_sparse_experiments(SPARSE_DIR)
+    sparse_results = load_sparse_experiments(SPARSE_DIR, SPARSE_IID_DIR)
     ablation = load_ablation_results(SPARSE_DIR)
     scheduler = load_scheduler_sweep(SCHEDULER_DIR)
     
@@ -562,11 +609,13 @@ def main():
     print(f"  ✓ Ablation (calibration): {len(ablation.get('calibration', {}))} configs")
     print(f"  ✓ Ablation (sparsity): {len(ablation.get('sparsity', {}))} configs")
     print(f"  ✓ Scheduler sweep: {'Found' if scheduler else 'Not found'}")
+    
+    sparse_noniid = load_sparse_noniid_results(SPARSE_NONIID_DIR)
+    print(f"  ✓ Sparse Non-IID (masking): {len(sparse_noniid)} experiments")
     if ablation.get('summary'):
         print(f"  ✓ Complete summary: Found")
     print()
     
-    # Generate visualizations
     print("Generating visualizations...")
     print("-" * 40)
     
@@ -582,14 +631,15 @@ def main():
     
     plot_sparse_comparison(sparse_results, fedavg_iid)
     
+    plot_masking_rule_comparison(sparse_noniid, noniid_results)
+    
     print()
     
-    # Generate summary
     print("Generating summary...")
     print("-" * 40)
     
     summary_df = generate_summary(central, fedavg_iid, noniid_results, sparse_results, ablation)
-    generate_latex_tables(summary_df, noniid_df)
+    # generate_latex_tables(summary_df, noniid_df)
     
     print()
     print("=" * 60)
@@ -598,7 +648,6 @@ def main():
     print(summary_df.to_string(index=False))
     print()
     
-    # Key findings from ablation
     if ablation.get('summary'):
         summary = ablation['summary']
         print("=" * 60)
@@ -620,7 +669,6 @@ def main():
                 diff = final['noniid_ls'] - final['noniid_random']
                 print(f"\n  ★ Least Sensitive vs Random: +{diff:.2f} pp")
     
-    # Scheduler sweep findings
     if scheduler:
         print(f"\n• Scheduler Comparison:")
         print(f"  → Best Scheduler: {scheduler['best_scheduler'].upper()}")

@@ -1,46 +1,107 @@
-\section{Methodology and Architecture}
+\section{Methodology}
 \label{sec:method}
 
-In this section, we detail our experimental framework for Federated Learning (FL). We first describe the model architecture and dataset, followed by the simulation of the federated environment with controlled data heterogeneity. Finally, we introduce the sparse optimization strategy, designed to mitigate the effects of interference between clients (so-called "client drift") and catastrophic forgetting of pre-trained knowledge.
+This section details the technical implementation of our experiments. We describe the baseline setups, data partitioning strategies, the sparse fine-tuning pipeline, and our extension comparing different parameter selection rules.
 
-\subsection{Model Architecture and Dataset}
-We adopt the \textbf{DINO ViT-S/16} architecture~\cite{caron2021emerging}, a Vision Transformer (ViT) pre-trained with self-supervision. Unlike supervised pre-training, DINO allows the model to learn robust and transferable visual features without relying on labeled data. We fine-tune this backbone on the \textbf{CIFAR-100} dataset, which consists of 60,000 images uniformly distributed across 100 classes.
+\subsection{Experimental Setup}
 
-For both central and federated experiments, we employ a standard data splitting strategy. A subset of the training data (approx. 20\%) is reserved as a validation set to monitor convergence and tune hyperparameters. In our default configuration, we adopt a "Head-Only" freeze policy: the pre-trained ViT backbone is frozen to preserve its feature extraction capabilities, and only the randomly initialized classification head is trained. In the sparse optimization experiments, we relax this constraint, allowing a small subset of the backbone parameters to be fine-tuned along with the head.
+\subsubsection{Centralized Baseline}
 
-\subsection{Federated Simulation Setup}
-We simulate a federated learning ecosystem with $K=100$ clients. In each communication round, the server randomly samples a fraction $C=0.1$ of the clients (10 clients per round) to perform local training. 
+As an upper bound for federated performance, we implement centralized training where all data is available on a single machine. We use a pretrained DINO ViT-S/16~\cite{caron2021emerging} backbone with a frozen feature extractor and a trainable linear classification head. Training is performed using SGDM with momentum 0.9 and weight decay $10^{-4}$. We employ a Cosine Annealing learning rate scheduler, selected after comparing against Step LR, Exponential decay, and Reduce on Plateau schedulers.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.3\textwidth]{images/fedAvg.PNG}
-    \caption{Overview of the Federated Averaging (FedAvg) workflow.}
-    \label{fig:fedavg}
-\end{figure}
+\subsubsection{Federated Learning Simulation}
 
-To systematically analyze the impact of statistical heterogeneity, we implement two data partitioning strategies:
-\begin{itemize}
-    \item \textbf{I.I.D. Sharding:} Training samples are shuffled and uniformly distributed among clients. This ensures that each client's local dataset is representative of the global distribution, serving as an idealized baseline.
-    \item \textbf{Non-I.I.D. Sharding:} We simulate label distribution skew, a common scenario in real-world FL. Each client is restricted to possess samples from only $N_c$ distinct classes out of the 100 available. We vary $N_c \in \{1, 5, 10, 50\}$ to control the severity of heterogeneity. The case $N_c=1$ (extreme non-I.I.D.) means each client sees only a single class, leading to highly divergent local updates.
-\end{itemize}
+To simulate distributed training on a single GPU, we implement sequential client training. In each communication round:
+\begin{enumerate}
+    \item The server broadcasts the global model weights to selected clients.
+    \item Each client trains independently on its local data partition for $J$ local steps.
+    \item The server collects and aggregates client updates via weighted averaging.
+\end{enumerate}
 
-During local training, selected clients optimize their local models using Stochastic Gradient Descent (SGD) for a fixed number of local update steps $J$. We explore values of $J \in \{4, 8, 16\}$. Increasing $J$ reduces communication frequency but increases the risk of the local models drifting too far from the global model.
-
-\subsection{Sparse Optimization Algorithm}
-A key challenge in FL with heterogeneous data is that clients may push the global model in conflicting directions. To address this, we utilize a \textbf{SparseSGDM} optimizer that restricts updates to a shared, "safe" subset of parameters. The method proceeds in two phases:
-
-\paragraph{1. Gradient Mask Calibration}
-Before federated training begins, we compute a binary mask $M \in \{0, 1\}^d$ that defines which parameters are allowed to change. We value parameter importance using the diagonal of the Fisher Information Matrix (FIM); Parameters with high Fisher information are critical for the model's pre-trained performance and should be preserved.
-Using a small calibration dataset on the server, we compute these sensitivity scores and apply a \textbf{Least-Sensitive} selection rule:
-\begin{itemize}
-    \item \textbf{Frozen ($M_i=0$):} Parameters with high sensitivity are locked to prevent catastrophic forgetting.
-    \item \textbf{Trainable ($M_i=1$):} Parameters with low sensitivity are marked as trainable, as modifying them has little negative impact on existing knowledge.
-\end{itemize}
-We set the sparsity ratio to $\rho=0.8$, meaning roughly 80\% of the network is frozen providing a good trade-off between plasticity and stability.. We compare this against \textbf{Random} and \textbf{Highest-Magnitude} masking baselines.
-
-\paragraph{2. Local Sparse Training}
-During communication rounds, all clients respect the global mask $M$. The local update rule for weights $w$ at iteration $t$ becomes:
+We adopt Federated Averaging (FedAvg)~\cite{mcmahan2017communication} as our aggregation strategy. Given $K$ total clients and participation fraction $C$, the server samples $m = \lfloor C \cdot K \rfloor$ clients per round. After local training, the server computes:
 \begin{equation}
-    w_{t+1} = w_t - \eta \cdot (M \odot \nabla \mathcal{L}(w_t))
+    w_{t+1} = \sum_{k \in S_t} \frac{n_k}{\sum_{j \in S_t} n_j} w_k^{(t)}
 \end{equation}
-where $\odot$ is the element-wise product. This constraint forces all clients to update *only* the same sub-network. By coordinating the update subspace, we ensure that local models remain compatible with each other, facilitating meaningful aggregation even when clients train on vastly different data distributions ($N_c=1$).
+where $S_t$ is the set of selected clients, $n_k$ is the sample count at client $k$, and $w_k^{(t)}$ are the local weights after training.
+
+\subsection{Dataset Partitioning}
+
+\subsubsection{Train/Validation Split}
+
+We use CIFAR-100, which contains 50,000 training images across 100 classes. Before client partitioning, we reserve 10\% of the training data (5,000 images) as a global validation set for hyperparameter tuning and early stopping. The remaining 45,000 images are distributed among clients.
+
+\subsubsection{IID Sharding}
+
+For IID (independent and identically distributed) partitioning, the training set is shuffled and uniformly divided among $K$ clients. Each client receives $\frac{45,000}{K}$ samples with approximately equal representation of all 100 classes, approximating the global distribution.
+
+\subsubsection{Non-IID Sharding}
+
+To simulate label distribution skew, we restrict each client to samples from only $N_c$ distinct classes. The parameter $N_c$ controls heterogeneity severity:
+\begin{itemize}
+    \item $N_c = 1$: Each client sees only one class (extreme heterogeneity).
+    \item $N_c = 50$: Each client sees half the classes (moderate heterogeneity).
+    \item $N_c = 100$: Equivalent to IID (no heterogeneity).
+\end{itemize}
+Classes are assigned to clients such that each class appears in approximately equal numbers of clients, and each client receives roughly equal sample counts.
+
+\subsubsection{Scaled Rounds}
+
+When increasing local steps $J$, we proportionally reduce communication rounds to maintain constant total computation (local steps $\times$ rounds). This enables fair comparison across different values of $J$.
+
+\subsection{Sparse Fine-Tuning Pipeline}
+
+To mitigate interference between heterogeneous clients, we restrict model updates to a subset of parameters during federated training. Our pipeline consists of mask calibration followed by masked local training.
+
+\subsubsection{Parameter Sensitivity via Fisher Information}
+
+We identify parameter importance using the diagonal of the empirical Fisher Information Matrix, which approximates how much each parameter affects the model's predictions:
+\begin{equation}
+    F_i = \mathbb{E}_{(x,y) \sim \mathcal{D}}\left[ \left( \frac{\partial \log p(y|x; w)}{\partial w_i} \right)^2 \right]
+\end{equation}
+High Fisher values indicate parameters critical to the pretrained knowledge; low values indicate parameters that can be modified with minimal impact.
+
+\subsubsection{Multi-Round Mask Calibration}
+
+Following Iurada~\etal~\cite{iurada2025efficient}, we compute Fisher scores over multiple calibration rounds rather than a single pass. Each round processes different mini-batches from the calibration set, and scores are accumulated. This multi-round approach yields more stable sensitivity estimates by averaging over data variability. After calibration, we apply a threshold based on the desired sparsity ratio to create a binary mask.
+
+\subsubsection{SparseSGDM Optimizer}
+
+We implement SparseSGDM, extending SGD with momentum to apply gradient masking. The update rule becomes:
+\begin{equation}
+    w_{t+1} = w_t - \eta \cdot (M \odot g_t)
+\end{equation}
+where $M \in \{0, 1\}^d$ is the binary mask, $g_t$ is the gradient (including momentum), $\eta$ is the learning rate, and $\odot$ denotes element-wise multiplication. Parameters with $M_i = 0$ receive zero gradient and remain unchanged. Weight decay is applied only to trainable parameters ($M_i = 1$) to prevent spurious updates to frozen weights.
+
+In the federated setting, all clients share the same global mask $M$, ensuring they update identical parameter subsets. This coordination maintains compatibility during aggregation even when local data distributions differ substantially.
+
+\subsection{Extension: Alternative Masking Rules}
+
+The core of our extension is a systematic comparison of different criteria for selecting which parameters to update. While the standard approach~\cite{iurada2025efficient} uses Fisher Information to identify least-sensitive parameters, we investigate whether alternative selection rules might be more effective in the federated setting.
+
+\subsubsection{Masking Strategies}
+
+Given a sparsity ratio $\rho$ (fraction of parameters to freeze), we compare five selection rules:
+
+\paragraph{Least-Sensitive (Baseline).} Select parameters with the \emph{lowest} Fisher scores. Rationale: these parameters contribute least to the pretrained knowledge and can be safely modified without catastrophic forgetting.
+
+\paragraph{Most-Sensitive.} Select parameters with the \emph{highest} Fisher scores. Rationale: these parameters are most task-relevant and updating them may yield faster adaptation, though at higher risk of overwriting pretrained features.
+
+\paragraph{Lowest-Magnitude.} Select parameters with the smallest absolute weight values. Rationale: near-zero weights may be redundant and modifying them could add capacity without disrupting existing representations.
+
+\paragraph{Highest-Magnitude.} Select parameters with the largest absolute weight values. Rationale: large weights dominate forward passes; updating them may have the strongest effect on model behavior.
+
+\paragraph{Random.} Select parameters uniformly at random. This serves as a baseline to evaluate whether intelligent parameter selection provides meaningful benefits over naive approaches.
+
+\subsubsection{Implementation Details}
+
+For Fisher-based methods, scores are computed using the same multi-round calibration procedure. For magnitude-based methods, we use the absolute values of the pretrained weights. For all methods, we apply global thresholding: we collect all scores across parameters, sort them, and select the top $(1-\rho)$ fraction according to the rule's criterion. This produces a binary mask that is distributed to all clients before federated training begins.
+
+\subsubsection{Hypothesis}
+
+We hypothesize that \textbf{Least-Sensitive} masking will perform best in heterogeneous federated settings because:
+\begin{enumerate}
+    \item It preserves the pretrained features that generalize across clients.
+    \item It focuses updates on parameters where client-specific adaptations are least likely to conflict.
+    \item It aligns with the Task Arithmetic principle that low-sensitivity parameters are optimal for multi-task composition~\cite{iurada2025efficient}.
+\end{enumerate}
+We test this hypothesis empirically in Section~\ref{sec:experiments}.
