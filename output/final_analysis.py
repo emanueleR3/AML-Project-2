@@ -149,41 +149,39 @@ def extract_final_test_acc(metrics: dict) -> Optional[float]:
     return None
 
 def plot_central_baseline(data: dict):
-    # Plot 1: Training Loss
-    plt.figure(figsize=(6, 4.5))
+    # Combined Plot: Training Loss and Training Accuracy
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+    
+    # Subplot 1: Training Loss
+    ax1 = axes[0]
     epochs = range(1, len(data['train_loss']) + 1)
-    plt.plot(epochs, data['train_loss'], color=COLORS['central'], linewidth=2, marker='o', markersize=4)
-    plt.xlabel('Epoch')
-    plt.ylabel('Training Loss')
-    plt.title('Central Baseline - Training Loss')
-    plt.grid(True, alpha=0.3)
+    ax1.plot(epochs, data['train_loss'], color=COLORS['central'], linewidth=2, marker='o', markersize=4)
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Training Loss')
+    ax1.set_title('Central Baseline - Training Loss')
+    ax1.grid(True, alpha=0.3)
     
-    plt.tight_layout()
-    plt.savefig(FIGURES_DIR / 'central_baseline_loss.png')
-    plt.savefig(FIGURES_DIR / 'central_baseline_loss.pdf')
-    plt.close()
+    # Subplot 2: Training Accuracy
+    ax2 = axes[1]
+    # Ensure epochs match training accuracy data length
+    acc_epochs = range(1, len(data['train_acc']) + 1)
+    ax2.plot(acc_epochs, data['train_acc'], color=COLORS['central'], linewidth=2, marker='o', markersize=4)
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('Training Accuracy (%)')
+    ax2.set_title('Central Baseline - Training Accuracy')
     
-    # Plot 2: Validation Accuracy
-    plt.figure(figsize=(6, 4.5))
-    n_val = len(data['val_acc'])
-    val_epochs = np.linspace(1, len(data['train_loss']), n_val).astype(int)
-    plt.plot(val_epochs, data['val_acc'], color=COLORS['central'], linewidth=2, marker='o', markersize=6)
-    plt.xlabel('Epoch')
-    plt.ylabel('Validation Accuracy (%)')
-    plt.title('Central Baseline - Validation Accuracy')
-    
-    best_acc = max(data['val_acc'])
-    plt.axhline(y=best_acc, color=COLORS['central'], linestyle='--', alpha=0.5)
-    plt.annotate(f'Best: {best_acc:.2f}%', xy=(val_epochs[-1], best_acc), 
+    best_acc = max(data['train_acc'])
+    ax2.axhline(y=best_acc, color=COLORS['central'], linestyle='--', alpha=0.5)
+    ax2.annotate(f'Best: {best_acc:.2f}%', xy=(acc_epochs[-1], best_acc), 
                  xytext=(-50, 5), textcoords='offset points', fontsize=10)
-    plt.grid(True, alpha=0.3)
+    ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(FIGURES_DIR / 'central_baseline_accuracy.png')
-    plt.savefig(FIGURES_DIR / 'central_baseline_accuracy.pdf')
+    plt.savefig(FIGURES_DIR / 'central_baseline_curves.png')
+    plt.savefig(FIGURES_DIR / 'central_baseline_curves.pdf')
     plt.close()
     
-    print("✓ Saved: central_baseline_loss.png/pdf and central_baseline_accuracy.png/pdf")
+    print("✓ Saved: central_baseline_curves.png/pdf (Training Loss + Training Accuracy)")
 
 
 def plot_fedavg_iid(data: dict):

@@ -1,119 +1,147 @@
 \section{Experiments}
 \label{sec:experiments}
 
-In this section, we present our experimental setup and analyze the results obtained across different federated learning configurations. We begin by establishing strong centralized and federated baselines, followed by an in-depth analysis of our proposed sparse fine-tuning method, including ablation studies and a comparison of different gradient masking strategies.
+In this section, we present the experimental evaluation of our proposed methods. We first detail the experimental setup, including the dataset and model architecture. We then establish strong centralized and federated baselines to benchmark performance. Finally, we analyze the impact of our sparse fine-tuning strategy through ablation studies and a comparative analysis of different gradient masking rules.
 
-\subsection{Dataset and Metrics}
-\label{subsec:dataset}
+\subsection{Experimental Setup}
+\label{subsec:setup}
 
-We evaluate our methods on \textbf{CIFAR-100}, a widely used benchmark in image classification containing 60,000 32$\times$32 color images across 100 fine-grained classes. The dataset is split into 50,000 training images and 10,000 test images. We further partition the training set to create a 90/10 train/validation split for hyperparameter tuning.
+\paragraph{Dataset and Model.}
+We conduct all experiments on the \textbf{CIFAR-100} dataset, which consists of 60,000 32$\times$32 color images in 100 classes, with 500 training images and 100 test images per class. We use a pre-trained \textbf{DINO ViT-S/16} backbone with a linear classification head. We adopted a two-stage training strategy: first, we froze the backbone and trained only the linear head; subsequently, we froze the trained head and fine-tuned the entire backbone. All models are trained using the SGD optimizer with momentum (SGDM).
 
-We report the following metrics:
-\begin{itemize}
-    \item \textbf{Test Accuracy (\%):} Classification accuracy on the held-out test set.
-    \item \textbf{Cross-Entropy Loss:} Standard loss function for multi-class classification.
-\end{itemize}
+\paragraph{Federated Setting.}
+We simulate a federated environment with $K=100$ clients and a participation rate of $C=0.1$ (10 clients per round). We explore both IID and non-IID data partitions. For non-IID settings, we restrict each client to hold data from only $N_c$ classes, creating statistical heterogeneity.
 
-All experiments use a DINO ViT-S/16 backbone with a linear classification head, trained with the SGDM optimizer.
+\subsection{Centralized Baseline}
+\label{subsec:centralized}
 
-\subsection{Baselines}
-\label{subsec:baselines}
+To establish an upper bound on performance, we evaluated the model in a centralized setting. We compared four learning rate schedulers: Cosine Annealing, ReduceLROnPlateau, Exponential, and StepLR. The results are summarized in Table~\ref{tab:centralized_schedulers}.
 
-We establish two key baselines to contextualize our federated learning results:
+\begin{table}[h]
+\centering
+\caption{Centralized Baseline Scheduler Comparison}
+\label{tab:centralized_schedulers}
+\begin{tabular}{lr}
+\toprule
+Scheduler & Test Accuracy (\%) \\
+\midrule
+Cosine & 86.18 \\
+Plateau & 85.87 \\
+Exponential & 85.96 \\
+Step & 85.68 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\paragraph{Centralized Training.}
-This represents the empirical upper bound, where all data is available on a single machine. We trained the model using the SGDM optimizer with a learning rate of $10^{-5}$ and batch size of 64 for 16 epochs. Figure~\ref{fig:central_curves} shows the training dynamics.
-
-\begin{figure}[h]
+\begin{figure*}[t]
     \centering
-    \includegraphics[width=0.48\textwidth]{output/figures/central_baseline_curves.pdf}
-    \caption{Centralized baseline training metrics with Cosine Annealing scheduler.}
+    \includegraphics[width=\textwidth]{output/figures/central_baseline_curves.png}
+    \caption{Centralized baseline training curves comparing different learning rate schedulers.}
     \label{fig:central_curves}
-\end{figure}
+\end{figure*}
 
-\paragraph{Learning Rate Scheduler Comparison.}
-We compared four learning rate schedulers: Cosine Annealing, Step LR, Exponential, and Reduce on Plateau. Figure~\ref{fig:scheduler} shows the test accuracy progression for each scheduler.
+As shown in Table~\ref{tab:centralized_schedulers}, the \textbf{Cosine Annealing} scheduler achieved the highest final test accuracy. We observed that the model converges rapidly. Consequently, we adopt Cosine Annealing for subsequent experiments.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.48\textwidth]{output/figures/scheduler_comparison.pdf}
-    \caption{Comparison of learning rate schedulers. Cosine Annealing achieves the best final test accuracy (86.18\%), followed by Exponential (85.96\%), Plateau (85.87\%), and Step (85.68\%).}
-    \label{fig:scheduler}
-\end{figure}
 
-The results show that \textbf{Cosine Annealing} achieves the best performance with 86.18\% test accuracy, outperforming Step LR by 0.5 percentage points. The smooth learning rate decay provided by Cosine Annealing allows for more stable convergence, while Step LR's abrupt changes can lead to suboptimal final performance.
 
-\paragraph{FedAvg Standard (IID).}
-The standard Federated Averaging algorithm serves as our FL baseline. With $K=100$ clients, $C=0.1$ participation rate, and $J=4$ local steps per round, FedAvg achieves \textbf{36.93\%} test accuracy after 100 rounds. Extending training to 300 rounds improves this to \textbf{57.99\%}. The significant gap from the centralized baseline (approx. 11\%) illustrates the inherent challenges of distributed optimization, even under favorable IID conditions. Figure~\ref{fig:fedavg_iid} shows the convergence behavior.
+\subsection{Federated Learning Baselines}
+\label{subsec:fl_baselines}
+
+We next evaluate the standard FedAvg algorithm under various conditions to understand the impact of data heterogeneity and local computation.
+
+We varied the number of classes per client $N_c \in \{1, 5, 10, 50\}$ to simulate varying degrees of non-IID data and investigated the effect of the number of local update steps $J \in \{4, 8, 16\}$. Figure~\ref{fig:heterogeneity_heatmap} provides a comprehensive summary of these results.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.48\textwidth]{output/figures/fedavg_iid_convergence.pdf}
-    \caption{FedAvg IID convergence over 300 rounds. While stable, it requires significantly more rounds to approach centralized performance.}
-    \label{fig:fedavg_iid}
+    \includegraphics[width=\columnwidth]{output/figures/noniid_scaled_heatmap.png}
+    \caption{Impact of statistical heterogeneity ($N_c$) and local steps ($J$) on test accuracy.}
+    \label{fig:heterogeneity_heatmap}
 \end{figure}
 
-\subsection{Impact of Data Heterogeneity}
-\label{subsec:noniid}
+We observe a significant performance degradation as heterogeneity increases ($N_c$ decreases), while increasing local steps generally benefits performance in IID or near-IID settings but can be detrimental in highly heterogeneous environments due to client drift.
 
-To study the effect of statistical heterogeneity, we simulated non-IID partitions by restricting each client to $N_c$ classes. We conducted a systematic sweep over $N_c \in \{1, 5, 10, 50\}$ and local steps $J \in \{4, 8, 16\}$, scaling the number of rounds to keep the total computation constant budget.
+\subsection{Sparse Fine-Tuning Optimizations}
+\label{subsec:sparse}
 
-Table~\ref{tab:noniid} (and Figure~\ref{fig:noniid_heatmap}) summarizes the results. We observe that:
-\begin{enumerate}
-    \item \textbf{Heterogeneity degrades performance:} Accuracy drops from 66.05\% ($N_c=50$, near-IID) to 25.15\% ($N_c=1$, extreme non-IID).
-    \item \textbf{Local steps help in IID settings:} Increasing local computation ($J=16$) is beneficial when data is homogeneous ($N_c=50$), boosting accuracy by over 28pp.
-    \item \textbf{Local steps hurt in non-IID settings:} Under extreme heterogeneity ($N_c=1$), increasing local steps yields diminishing returns (only +5.4pp), as local models drift too far from the global objective.
-\end{enumerate}
+\subsubsection{Ablation Studies}
+We conducted ablation studies to determine the optimal hyperparameters for our sparse fine-tuning method, specifically the number of Fisher calibration rounds and the sparsity ratio.
+
+\begin{table}[h]
+\centering
+\caption{Sparse Ablation: Sparsity Levels and Calibration Rounds}
+\label{tab:sparse_ablation}
+\begin{tabular}{llr}
+\toprule
+Type & Value & Test Accuracy (\%) \\
+\midrule
+Calibration Rounds & 1 & 77.87 \\
+Calibration Rounds & 3 & 77.91 \\
+Calibration Rounds & 5 & 77.91 \\
+Calibration Rounds & 10 & 77.90 \\
+Sparsity & 20\% & 80.10 \\
+Sparsity & 50\% & 77.92 \\
+Sparsity & 90\% & 73.81 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+As shown in Table~\ref{tab:sparse_ablation} and Figure~\ref{fig:ablation}, calculating Fisher Information over \textbf{3 rounds} is sufficient for stable masking. Regarding sparsity, we found that maintaining \textbf{20\% sparsity} provided the optimal balance between plasticity and stability.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.48\textwidth]{output/figures/noniid_scaled_heatmap.pdf}
-    \caption{Test accuracy across varying heterogeneity ($N_c$) and local computation ($J$). High heterogeneity ($N_c=1$) severely limits performance.}
-    \label{fig:noniid_heatmap}
-\end{figure}
-
-\subsection{Sparse Fine-Tuning: Ablation Studies}
-\label{subsec:ablation}
-
-Before deploying our Sparse FedAvg, we conducted ablation studies to determine optimal hyperparameters for the Fisher Information masking.
-
-\paragraph{Calibration Rounds.}
-We tested calibrating the Fisher Information matrix over 1, 3, 5, and 10 rounds. Results showed that performance saturates quickly; increasing calibration rounds beyond 3 provided negligible gains. We selected \textbf{3 rounds} as a trade-off between calibration cost and mask quality.
-
-\paragraph{Sparsity Ratio.}
-We experimented with keeping 10\%, 20\%, and 40\% of parameters (sparsity 90\%, 80\%, 60%). We found that an \textbf{80\% sparsity} (updating only 20\% of weights) preserved enough capacity for adaptation while sufficiently reducing interference, achieving the best balance.
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.48\textwidth]{output/figures/ablation_studies.pdf}
-    \caption{Ablation studies for calibration rounds and sparsity ratio. 3 calibration rounds and 80\% sparsity were selected as optimal.}
+    \includegraphics[width=\columnwidth]{output/figures/ablation_studies.png}
+    \caption{Ablation study results for calibration rounds and sparsity levels.}
     \label{fig:ablation}
 \end{figure}
 
 \subsection{Extension: Comparison of Masking Rules}
-\label{subsec:extension}
+\label{subsec:extension_results}
 
-In this section, we address the core of our proposed extension: evaluating different criteria for selecting which parameters to update. We compared five strategies using 80\% sparsity on the non-IID setting ($N_c=5$):
+Finally, we evaluated five different strategies for selecting which parameters to update (Masking Rules) in a non-IID setting. We compared:
+\begin{itemize}
+    \item \textbf{Least Sensitive:} Updates parameters with the smallest Fisher Information.
+    \item \textbf{Most Sensitive:} Updates parameters with the largest Fisher Information.
+    \item \textbf{Lowest Magnitude:} Updates parameters with the smallest absolute values.
+    \item \textbf{Highest Magnitude:} Updates parameters with the largest absolute values.
+    \item \textbf{Random:} Selects parameters randomly.
+\end{itemize}
 
-\begin{enumerate}
-    \item \textbf{Least-Sensitive (Ours):} Updates parameters with the lowest Fisher Information. Rationale: adapt weights that matter least to pre-trained knowledge.
-    \item \textbf{Most-Sensitive:} Updates parameters with highest Fisher Information.
-    \item \textbf{Lowest-Magnitude:} Updates weights close to zero.
-    \item \textbf{Highest-Magnitude:} Updates weights with large values.
-    \item \textbf{Random:} Selects a random subset of parameters.
-\end{enumerate}
+Table~\ref{tab:masking_rules} and Figure~\ref{fig:masking_rules} present the comparative results.
 
-\begin{figure}[t]
+\begin{figure*}[t]
     \centering
-    \includegraphics[width=0.48\textwidth]{output/figures/masking_rule_comparison.pdf}
-    \caption{Comparison of different masking strategies in a non-IID setting ($N_c=5$). The Fisher-based methods (Sensitivity) outperform magnitude-based and random selection.}
+    \includegraphics[width=\textwidth]{output/figures/masking_rule_comparison.png}
+    \caption{Performance comparison of different gradient masking rules across various non-IID settings.}
     \label{fig:masking_rules}
-\end{figure}
+\end{figure*}
+\begin{table}[h]
+\centering
+\caption{Comparison of Masking Rules in Non-IID Settings}
+\label{tab:masking_rules}
+\begin{tabular}{rrlr}
+\toprule
+$N_c$ & $J$ & Masking Rule & Test Accuracy (\%) \\
+\midrule
+5 & 4 & Highest Magnitude & 81.16 \\
+5 & 4 & Least Sensitive & 79.32 \\
+5 & 4 & Lowest Magnitude & 80.53 \\
+5 & 4 & Most Sensitive & 80.18 \\
+5 & 4 & Random & 80.61 \\
+\addlinespace
+5 & 8 & Highest Magnitude & 80.14 \\
+5 & 8 & Least Sensitive & 79.62 \\
+5 & 8 & Lowest Magnitude & 77.17 \\
+5 & 8 & Most Sensitive & 78.40 \\
+5 & 8 & Random & 78.95 \\
+\addlinespace
+10 & 8 & Highest Magnitude & 82.09 \\
+10 & 8 & Least Sensitive & 80.60 \\
+10 & 8 & Lowest Magnitude & 80.00 \\
+10 & 8 & Most Sensitive & 79.93 \\
+10 & 8 & Random & 81.17 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\paragraph{Results.} 
-Figure~\ref{fig:masking_rules} illustrates the comparative performance.
-Our experiments reveal that \textbf{Least-Sensitive} masking achieves the highest accuracy (\textbf{76.32\%} at $J=4$), confirming our hypothesis that preserving high-information weights mitigates catastrophic forgetting. 
-Interestingly, \textbf{Most-Sensitive} masking also performed competitively, suggesting that adaptation in high-information regions can be effective if carefully controlled, though it risks overriding pre-trained features.
-Both magnitude-based methods and random masking performed significantly worse. Specifically, Random masking reached only ~26.14\% in extreme non-IID settings ($N_c=1$), highlighting that intelligent parameter selection is crucial for sparse federated learning.
 
-These findings validate that Fisher Information provides a meaningful signal for parameter importance in the context of Federated Learning, enabling targeted updates that reduce interference while maintaining plasticity.
+The \textbf{Highest Magnitude} pruning rule consistently outperformed other methods, including Fisher-based sensitivity methods (Least/Most Sensitive). This suggests that in this transfer learning setup, adapting strong feature detectors (large magnitude weights) is particularly effective.
