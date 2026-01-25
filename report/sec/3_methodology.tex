@@ -7,14 +7,20 @@ This section details the technical implementation of our experiments. We describ
 
 \subsubsection{Centralized Baseline}
 
-As an upper bound for federated performance, we implement centralized training where all data is available on a single machine. We use a pretrained DINO ViT-S/16~\cite{caron2021emerging} backbone with a frozen feature extractor and a trainable linear classification head. Training is performed using SGDM with momentum 0.9 and weight decay $10^{-4}$. We employ a Cosine Annealing learning rate scheduler, selected after comparing against Step LR, Exponential decay, and Reduce on Plateau schedulers.
+As an upper bound for federated performance, we implement centralized training where all data is available on a single machine. We use a pretrained DINO ViT-S/16~\cite{caron2021emerging} backbone (loaded from \texttt{torch.hub}) and optimize a CIFAR-100 classifier using cross-entropy loss.
+
+To mirror the federated protocol (where we fine-tune the backbone while keeping a shared classifier fixed), we adopt a two-stage training procedure:
+\begin{enumerate}
+    \item \textbf{Head pre-training (Step 1).} We freeze the DINO backbone (\texttt{freeze\_policy=head\_only}) and train a linear head (dropout + linear layer) for 20 epochs using SGDM (lr $=10^{-2}$, momentum $=0.9$, weight decay $=10^{-4}$) with a Cosine Annealing scheduler. The best validation checkpoint is saved as \texttt{pretrained\_head.pt}.
+    \item \textbf{Central baseline (Step 2).} Starting from \texttt{pretrained\_head.pt}, we freeze the classifier head (\texttt{freeze\_head=True}) and fine-tune the entire backbone (\texttt{freeze\_policy=finetune\_all}) for 40 epochs using SGDM (lr $=10^{-5}$, momentum $=0.9$, weight decay $=10^{-4}$) with Cosine Annealing. The best validation checkpoint is saved as \texttt{central\_baseline.pt}.
+\end{enumerate}
 
 \subsubsection{Federated Learning Simulation}
 
 To simulate distributed training on a single GPU, we implement sequential client training. In each communication round:
 \begin{enumerate}
     \item The server broadcasts the global model weights to selected clients.
-    \item Each client trains independently on its local data partition for $J$ local steps.
+    \item Each client trains independently on its local data partition for $J$ \emph{local steps} (i.e., $J$ minibatch gradient updates; if the dataloader is exhausted, we cycle through it).
     \item The server collects and aggregates client updates via weighted averaging.
 \end{enumerate}
 
@@ -28,7 +34,7 @@ where $S_t$ is the set of selected clients, $n_k$ is the sample count at client 
 
 \subsubsection{Train/Validation Split}
 
-We use CIFAR-100, which contains 50,000 training images across 100 classes. Before client partitioning, we reserve 10\% of the training data (5,000 images) as a global validation set for hyperparameter tuning and early stopping. The remaining 45,000 images are distributed among clients.
+We use CIFAR-100, which contains 50,000 training images across 100 classes. Images are resized to $224\times224$ and normalized with ImageNet statistics; during training we apply standard augmentations (random crop/flip and RandAugment). Before client partitioning, we reserve 10\% of the training data (5,000 images) as a global validation set for model selection. The remaining 45,000 images are distributed among clients.
 
 \subsubsection{IID Sharding}
 
@@ -36,17 +42,17 @@ For IID (independent and identically distributed) partitioning, the training set
 
 \subsubsection{Non-IID Sharding}
 
-To simulate label distribution skew, we restrict each client to samples from only $N_c$ distinct classes. The parameter $N_c$ controls heterogeneity severity:
+To simulate label distribution skew, we restrict each client to samples from only $N_c$ distinct classes (selected uniformly at random without replacement). The parameter $N_c$ controls heterogeneity severity:
 \begin{itemize}
     \item $N_c = 1$: Each client sees only one class (extreme heterogeneity).
     \item $N_c = 50$: Each client sees half the classes (moderate heterogeneity).
     \item $N_c = 100$: Equivalent to IID (no heterogeneity).
 \end{itemize}
-Classes are assigned to clients such that each class appears in approximately equal numbers of clients, and each client receives roughly equal sample counts.
+For each chosen class, a subset of its examples is assigned to the client. This procedure yields label-skewed client datasets while keeping the overall sample counts approximately balanced.
 
 \subsubsection{Scaled Rounds}
 
-When increasing local steps $J$, we proportionally reduce communication rounds to maintain constant total computation (local steps $\times$ rounds). This enables fair comparison across different values of $J$.
+When increasing local steps $J$, we proportionally reduce communication rounds to maintain constant total computation (local steps $\times$ rounds). Concretely, we fix a reference budget of $J_\text{base}=4$ and $R_\text{base}=200$ rounds (total steps $=800$), and run $R=\lfloor 800/J \rfloor$ rounds for each $J\in\{4,8,16\}$. This enables fair comparison across different values of $J$.
 
 \subsection{Sparse Fine-Tuning Pipeline}
 
@@ -62,15 +68,15 @@ High Fisher values indicate parameters critical to the pretrained knowledge; low
 
 \subsubsection{Multi-Round Mask Calibration}
 
-Following Iurada~\etal~\cite{iurada2025efficient}, we compute Fisher scores over multiple calibration rounds rather than a single pass. Each round processes different mini-batches from the calibration set, and scores are accumulated. This multi-round approach yields more stable sensitivity estimates by averaging over data variability. After calibration, we apply a threshold based on the desired sparsity ratio to create a binary mask.
+Following Iurada~\etal~\cite{iurada2025efficient}, we compute Fisher scores over multiple calibration rounds rather than a single pass. Each calibration round samples a subset of clients and estimates the diagonal Fisher on each selected client; we then average Fisher estimates across clients and accumulate across calibration rounds. This multi-round approach yields more stable sensitivity estimates by averaging over data and client variability. After calibration, we apply global thresholding (across all trainable parameters) to create a binary mask at the desired sparsity ratio.
 
 \subsubsection{SparseSGDM Optimizer}
 
-We implement SparseSGDM, extending SGD with momentum to apply gradient masking. The update rule becomes:
+We implement SparseSGDM, extending SGD with momentum to apply gradient masking consistently (including the weight decay term). For each parameter vector $w_t$ and gradient $g_t$, we apply:
 \begin{equation}
-    w_{t+1} = w_t - \eta \cdot (M \odot g_t)
+    \tilde{g}_t = M \odot g_t + \lambda\,(M \odot w_t),
 \end{equation}
-where $M \in \{0, 1\}^d$ is the binary mask, $g_t$ is the gradient (including momentum), $\eta$ is the learning rate, and $\odot$ denotes element-wise multiplication. Parameters with $M_i = 0$ receive zero gradient and remain unchanged. Weight decay is applied only to trainable parameters ($M_i = 1$) to prevent spurious updates to frozen weights.
+followed by standard momentum and an SGD step with learning rate $\eta$. Here $M\in\{0,1\}^d$ is the binary mask and $\lambda$ is the weight decay coefficient. Parameters with $M_i=0$ receive neither gradient nor weight decay updates, remaining effectively frozen throughout training.
 
 In the federated setting, all clients share the same global mask $M$, ensuring they update identical parameter subsets. This coordination maintains compatibility during aggregation even when local data distributions differ substantially.
 
