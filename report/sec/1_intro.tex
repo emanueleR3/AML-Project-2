@@ -11,14 +11,3 @@ In this work, we bring these insights from model editing into the Federated Lear
 
 We evaluate our approach on the CIFAR-100 image classification benchmark using a pretrained Vision Transformer backbone. Through comprehensive experiments, we compare our sparse fine-tuning strategy against standard federated baselines under varying degrees of data heterogeneity. We further explore different criteria for selecting which parameters to update, providing insights into the relationship between parameter sensitivity and client drift mitigation.
 
-\subsection{Contributions}
-
-Our main contributions are as follows:
-\begin{itemize}
-    \item We establish centralized and federated baselines using pretrained Vision Transformer features, providing a solid foundation for comparison.
-    \item We integrate sparse fine-tuning into the Federated Learning loop through gradient masking based on parameter sensitivity, enabling selective updates that preserve pretrained knowledge.
-    \item We conduct ablation studies to understand the impact of key hyperparameters, including sparsity levels and mask calibration strategies.
-    \item We compare multiple parameter selection criteria and analyze their effectiveness under severe data heterogeneity, offering practical guidance for practitioners.
-\end{itemize}
-
-The remainder of this paper is organized as follows: Section~\ref{sec:related} reviews related work. Section~\ref{sec:method} describes our methodology. Section~\ref{sec:experiments} presents our experimental evaluation. Section~\ref{sec:conclusion} concludes with a discussion of findings and future directions.
