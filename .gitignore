@@ -70,8 +70,10 @@ tb_logs/
 # Checkpoints
 *.ckpt
 *.pth
+*.pt
 
 *.bin
+*.png
 checkpoints/
 **/checkpoints/
 
